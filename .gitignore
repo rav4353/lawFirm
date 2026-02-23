@@ -1,0 +1,47 @@
+# Dependency directories
+node_modules/
+jspm_packages/
+bower_components/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.env
+.venv
+env.bak/
+venv.bak/
+
+# Logs and databases
+*.log
+*.sqlite
+*.sqlite3
+*.db
+backend/test_*.txt
+backend/out*.txt
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Uploads
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Temporary/custom output files
+git_status_out.txt

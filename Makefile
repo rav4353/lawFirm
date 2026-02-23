@@ -1,4 +1,4 @@
-.PHONY: help install frontend-dev backend-dev deploy
+.PHONY: help install frontend-dev backend-dev build-images deploy
 
 help:
 	@echo "Veritas AI - Development & Deployment"
@@ -7,7 +7,8 @@ help:
 	@echo "  make install      Install all dependencies"
 	@echo "  make frontend-dev Run frontend in development mode"
 	@echo "  make backend-dev  Run backend in development mode"
-	@echo "  make deploy       Deploy the entire stack (k3s simulation)"
+	@echo "  make build-images Build backend/frontend Docker images"
+	@echo "  make deploy       Deploy the stack to the current k8s context"
 
 install:
 	cd frontend && npm install
@@ -19,13 +20,18 @@ frontend-dev:
 backend-dev:
 	cd backend && ./venv/bin/activate && uvicorn api.main:app --reload
 
+build-images:
+	docker build -t veritas-ai-backend:latest ./backend
+	docker build -t veritas-ai-frontend:latest ./frontend
+
 deploy:
 	@echo "Starting Veritas AI Deployment..."
-	@echo "1. Checking k3s cluster..."
-	@echo "2. Deploying PostgreSQL & MinIO..."
-	@echo "3. Deploying OPA Server..."
-	@echo "4. Deploying AI Service (Mistral 7B)..."
-	@echo "5. Deploying Backend Application..."
-	@echo "6. Deploying Frontend Application..."
-	@echo "7. Deploying Observability (Prometheus/Grafana)..."
+	@echo "1. Building Docker images..."
+	@$(MAKE) build-images
+	@echo "2. Applying Kubernetes manifests..."
+	kubectl apply -f k8s/00-namespace.yaml
+	kubectl apply -f k8s/01-postgres.yaml
+	kubectl apply -f k8s/02-backend.yaml
+	kubectl apply -f k8s/03-frontend.yaml
+	kubectl apply -f k8s/04-ingress.yaml
 	@echo "Deployment Complete!"
