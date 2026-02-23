@@ -1,0 +1,6 @@
+error: pathspec 'feat:' did not match any file(s) known to git
+error: pathspec 'add' did not match any file(s) known to git
+error: pathspec 'missing' did not match any file(s) known to git
+error: pathspec 'project' did not match any file(s) known to git
+error: pathspec 'source' did not match any file(s) known to git
+error: pathspec 'files\ ' did not match any file(s) known to git

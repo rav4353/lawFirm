@@ -1,7 +1,23 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI(title="Veritas AI API")
+from api.routes import auth, documents, workflows, prompts, analyze
+from models.database import Base, engine
+from models.workflow import Workflow  # noqa: F401
+from models.prompt import PromptVersion  # noqa: F401 
+from models.analysis import AnalysisResult  # noqa: F401 - DB init
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Create all tables on startup
+    Base.metadata.create_all(bind=engine)
+    yield
+
+
+app = FastAPI(title="Veritas AI API", lifespan=lifespan)
 
 # Configure CORS
 app.add_middleware(
@@ -11,6 +27,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount routers
+app.include_router(auth.router)
+app.include_router(documents.router)
+app.include_router(workflows.router)
+app.include_router(prompts.router)
+app.include_router(analyze.router)
+
 
 @app.get("/health")
 async def health_check():

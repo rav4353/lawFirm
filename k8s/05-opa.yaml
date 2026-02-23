@@ -1,0 +1,117 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opa-policy
+  namespace: veritas
+data:
+  authz.rego: |
+    package veritas.authz
+
+    import rego.v1
+
+    default allow := false
+
+    permissions := {
+        "paralegal": {
+            "documents":  ["upload", "list_own", "read_own", "delete_own"],
+            "workflows":  ["view_own"],
+            "audit_logs": ["view_own"],
+            "users":      ["view_self"],
+        },
+        "associate": {
+            "documents":  ["upload", "list_own", "read_own", "read_any", "delete_own"],
+            "workflows":  ["create", "view_own"],
+            "audit_logs": ["view_own"],
+            "users":      ["view_self"],
+        },
+        "partner": {
+            "documents":  ["upload", "list_own", "list_all", "read_own", "read_any", "delete_own", "delete_any"],
+            "workflows":  ["create", "view_own", "view_all", "approve", "delete"],
+            "audit_logs": ["view_own", "view_all", "export"],
+            "users":      ["view_self", "list_all"],
+        },
+        "it_admin": {
+            "documents":  ["list_all"],
+            "workflows":  ["view_all"],
+            "audit_logs": ["view_own", "view_all", "export"],
+            "users":      ["view_self", "list_all", "create", "update_role", "deactivate"],
+        },
+    }
+
+    allow if {
+        role_perms := permissions[input.role]
+        actions := role_perms[input.resource]
+        input.action in actions
+    }
+
+    allowed_actions contains {"resource": resource, "action": action} if {
+        some resource, actions in permissions[input.role]
+        some action in actions
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opa
+  namespace: veritas
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: opa
+  template:
+    metadata:
+      labels:
+        app: opa
+    spec:
+      containers:
+        - name: opa
+          image: openpolicyagent/opa:latest-static
+          args:
+            - "run"
+            - "--server"
+            - "--log-level=info"
+            - "--addr=0.0.0.0:8181"
+            - "/policies"
+          ports:
+            - containerPort: 8181
+          volumeMounts:
+            - name: policy
+              mountPath: /policies
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8181
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8181
+            initialDelaySeconds: 5
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+      volumes:
+        - name: policy
+          configMap:
+            name: opa-policy
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: opa
+  namespace: veritas
+spec:
+  selector:
+    app: opa
+  ports:
+    - name: http
+      port: 8181
+      targetPort: 8181
