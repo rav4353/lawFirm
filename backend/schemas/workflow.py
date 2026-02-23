@@ -41,6 +41,7 @@ class WorkflowUpdate(BaseModel):
     description: Optional[str] = None
     nodes: Optional[list[WorkflowNode]] = None
     edges: Optional[list[WorkflowEdge]] = None
+    is_active: Optional[bool] = None
 
 
 class WorkflowResponse(BaseModel):

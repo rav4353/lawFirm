@@ -120,6 +120,8 @@ def update_workflow(
         update_kwargs["name"] = data.name
     if data.description is not None:
         update_kwargs["description"] = data.description
+    if data.is_active is not None:
+        update_kwargs["is_active"] = data.is_active
     if data.nodes is not None:
         nodes_dicts = [n.model_dump() for n in data.nodes]
         edges_dicts = (

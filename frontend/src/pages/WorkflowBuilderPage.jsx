@@ -41,6 +41,8 @@ import AnalyzeGDPRNode from '@/components/workflow/AnalyzeGDPRNode';
 import AnalyzeCCPANode from '@/components/workflow/AnalyzeCCPANode';
 import ScoreComplianceNode from '@/components/workflow/ScoreComplianceNode';
 
+import { toast } from 'sonner';
+
 /* ── Node type registry ── */
 const nodeTypes = {
   document_upload: DocumentUploadNode,
@@ -123,7 +125,6 @@ function WorkflowCanvas() {
   const [workflowName, setWorkflowName] = useState('Untitled Workflow');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(!!workflowId);
-  const [saveStatus, setSaveStatus] = useState(null); // 'saved' | 'error' | null
   const [errorMsg, setErrorMsg] = useState('');
 
   /* ── Load existing workflow ── */
@@ -189,7 +190,6 @@ function WorkflowCanvas() {
   /* ── Save workflow ── */
   const handleSave = async () => {
     setSaving(true);
-    setSaveStatus(null);
     setErrorMsg('');
     try {
       const payload = {
@@ -218,10 +218,9 @@ function WorkflowCanvas() {
         // Update URL to include the new workflow ID without a page reload
         window.history.replaceState(null, '', `/workflows?id=${created.id}`);
       }
-      setSaveStatus('saved');
-      setTimeout(() => setSaveStatus(null), 3000);
+      toast.success('Workflow saved successfully!');
     } catch (err) {
-      setSaveStatus('error');
+      toast.error('Failed to save workflow');
       const detail = err?.response?.data?.detail;
       if (typeof detail === 'object' && detail?.validation_errors) {
         setErrorMsg(detail.validation_errors.join(', '));
@@ -244,58 +243,52 @@ function WorkflowCanvas() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       {/* ── Header ── */}
-      <header className="sticky top-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-lg">
-        <div className="mx-auto flex h-14 max-w-[1800px] items-center justify-between px-4">
-          <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-50 border-b border-border/40 bg-background/70 backdrop-blur-xl supports-backdrop-filter:bg-background/60">
+        <div className="mx-auto flex h-16 w-full items-center justify-between px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-2 sm:gap-4">
             <Button
               variant="ghost"
-              size="sm"
-              onClick={() => navigate('/dashboard')}
-              className="gap-1.5"
+              onClick={() => navigate('/workflows')}
+              className="gap-2 text-muted-foreground hover:text-foreground h-9 px-3"
             >
-              <ArrowLeft className="h-4 w-4" />
-              <span className="hidden sm:inline">Back</span>
+              <ArrowLeft className="h-4.5 w-4.5" />
+              <span className="hidden sm:inline text-sm font-medium">Back</span>
             </Button>
-            <div className="flex items-center gap-2">
-              <Scale className="h-5 w-5 text-primary" />
-              <Workflow className="h-4 w-4 text-muted-foreground" />
+            
+            <div className="hidden h-5 w-px bg-border sm:block" />
+
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                 <Scale className="h-4.5 w-4.5 text-primary" />
+              </div>
+              <Workflow className="h-4 w-4 text-muted-foreground hidden sm:block" />
+            
+              {canEdit ? (
+                <input
+                  type="text"
+                  value={workflowName}
+                  onChange={(e) => setWorkflowName(e.target.value)}
+                  className="bg-transparent text-lg font-bold tracking-tight outline-none border-b border-transparent hover:border-border focus:border-primary transition-colors w-64"
+                  placeholder="Workflow name…"
+                />
+              ) : (
+                <span className="text-lg font-bold tracking-tight">{workflowName}</span>
+              )}
             </div>
-            {canEdit ? (
-              <input
-                type="text"
-                value={workflowName}
-                onChange={(e) => setWorkflowName(e.target.value)}
-                className="bg-transparent text-sm font-semibold outline-none border-b border-transparent hover:border-border focus:border-primary transition-colors w-52"
-                placeholder="Workflow name…"
-              />
-            ) : (
-              <span className="text-sm font-semibold">{workflowName}</span>
-            )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 sm:gap-4">
             <ThemeToggle />
-            {saveStatus === 'saved' && (
-              <Badge variant="secondary" className="gap-1 text-emerald-400">
-                <CheckCircle2 className="h-3 w-3" /> Saved
-              </Badge>
-            )}
-            {saveStatus === 'error' && (
-              <Badge variant="destructive" className="gap-1">
-                <AlertCircle className="h-3 w-3" /> Error
-              </Badge>
-            )}
             {canEdit && (
               <Button
-                size="sm"
                 onClick={handleSave}
                 disabled={saving}
-                className="gap-1.5"
+                className="gap-2 rounded-full px-5 shadow-sm"
               >
                 {saving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4.5 w-4.5 animate-spin" />
                 ) : (
-                  <Save className="h-4 w-4" />
+                  <Save className="h-4.5 w-4.5" />
                 )}
                 Save
               </Button>
@@ -324,13 +317,13 @@ function WorkflowCanvas() {
             initial={{ x: -20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ duration: 0.3 }}
-            className="w-56 shrink-0 border-r border-border/40 bg-card/40 p-3 overflow-y-auto"
+            className="w-56 shrink-0 border-r border-border/40 bg-card/40 p-3 overflow-y-auto flex flex-col"
           >
             <p className="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">
               <Plus className="mr-1 inline h-3 w-3" />
               Drag to add
             </p>
-            <div className="space-y-2">
+            <div className="space-y-2 flex-1">
               {paletteItems.map((item) => (
                 <Card
                   key={item.type}
@@ -345,7 +338,7 @@ function WorkflowCanvas() {
                     <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50" />
                     <item.icon className={`h-4 w-4 ${item.color}`} />
                     <div className="min-w-0">
-                      <p className="text-xs font-medium text-slate-200 truncate">
+                      <p className="text-xs font-medium text-foreground truncate">
                         {item.label}
                       </p>
                       <p className="text-[10px] text-muted-foreground truncate">
@@ -355,6 +348,12 @@ function WorkflowCanvas() {
                   </CardContent>
                 </Card>
               ))}
+            </div>
+            {/* Helpful tip for deletion */}
+            <div className="mt-4 rounded-lg bg-muted/50 p-3 text-center border border-border/50">
+              <p className="text-[10px] text-muted-foreground">
+                <span className="font-semibold text-foreground">Tip:</span> Select any node on the canvas and press <kbd className="font-mono text-[9px] bg-background border border-border rounded px-1">Backspace</kbd> or <kbd className="font-mono text-[9px] bg-background border border-border rounded px-1">Delete</kbd> to remove it.
+              </p>
             </div>
           </motion.aside>
         )}

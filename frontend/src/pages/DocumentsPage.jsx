@@ -26,7 +26,20 @@ import {
   ArrowLeft,
   CloudUpload,
   File,
+  Search,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -48,6 +61,8 @@ export default function DocumentsPage() {
   const [dragOver, setDragOver] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState(null);
   const [viewLoading, setViewLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [docToDelete, setDocToDelete] = useState(null);
 
   const fetchDocuments = useCallback(async () => {
     try {
@@ -75,7 +90,9 @@ export default function DocumentsPage() {
     try {
       await documentService.upload(file);
       await fetchDocuments();
+      toast.success("Document uploaded successfully");
     } catch (err) {
+      toast.error(err.response?.data?.detail || "Upload failed");
       setError(
         err.response?.data?.detail || "Upload failed. Please try again."
       );
@@ -104,15 +121,23 @@ export default function DocumentsPage() {
 
   const handleDragLeave = () => setDragOver(false);
 
-  const handleDelete = async (id) => {
+  const confirmDelete = async () => {
+    if (!docToDelete) return;
     try {
-      await documentService.remove(id);
-      setDocuments((prev) => prev.filter((d) => d.id !== id));
-      if (selectedDoc?.id === id) setSelectedDoc(null);
+      await documentService.remove(docToDelete);
+      setDocuments((prev) => prev.filter((d) => d.id !== docToDelete));
+      if (selectedDoc?.id === docToDelete) setSelectedDoc(null);
+      toast.success("Document deleted successfully");
     } catch {
-      setError("Failed to delete document.");
+      toast.error("Failed to delete document.");
+    } finally {
+      setDocToDelete(null);
     }
   };
+
+  const filteredDocs = documents.filter((doc) =>
+    doc.filename.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const handleView = async (id) => {
     setViewLoading(true);
@@ -156,9 +181,6 @@ export default function DocumentsPage() {
           </div>
           <div className="flex items-center gap-4">
             <ThemeToggle />
-            <Badge variant="secondary" className="text-xs">
-              {documents.length} file{documents.length !== 1 ? "s" : ""}
-            </Badge>
           </div>
         </div>
       </header>
@@ -238,26 +260,73 @@ export default function DocumentsPage() {
           <div className="flex justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
-        ) : documents.length === 0 ? (
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={fadeUp}
-            custom={1}
-            className="flex flex-col items-center py-16 text-center"
-          >
-            <FileText className="h-12 w-12 text-muted-foreground/40" />
-            <p className="mt-4 text-lg font-medium text-muted-foreground">
-              No documents yet
-            </p>
-            <p className="text-sm text-muted-foreground/70">
-              Upload your first PDF to get started
-            </p>
-          </motion.div>
+        ) : filteredDocs.length === 0 && documents.length > 0 ? (
+          <div className="space-y-6 pt-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
+                <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-bold tracking-tight">Your Documents</h2>
+                    <Badge variant="secondary" className="text-xs">
+                      {documents.length} file{documents.length !== 1 ? "s" : ""}
+                    </Badge>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                    <div className="relative">
+                        <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input 
+                            type="search" 
+                            placeholder="Search documents..." 
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-9 w-full sm:w-[250px] bg-card/40 border-border/50 focus-visible:ring-primary/20 transition-all rounded-full h-9"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <motion.div
+              initial="hidden"
+              animate="visible"
+              variants={fadeUp}
+              className="flex flex-col items-center justify-center py-20 text-center"
+            >
+              <div className="mb-4 flex items-center justify-center rounded-full bg-muted/40 p-5 backdrop-blur-sm">
+                <Search className="h-10 w-10 text-muted-foreground/40" />
+              </div>
+              <h2 className="text-xl font-bold tracking-tight mb-2">No results found</h2>
+              <p className="text-sm text-muted-foreground">
+                No documents match your search <span className="font-semibold text-foreground">"{searchQuery}"</span>.
+              </p>
+              <Button variant="link" onClick={() => setSearchQuery('')} className="mt-2 text-primary">
+                Clear search
+              </Button>
+            </motion.div>
+          </div>
         ) : (
-          <div className="space-y-3">
-            <h2 className="mb-2 text-lg font-semibold">Your Documents</h2>
-            {documents.map((doc, i) => (
+          <div className="space-y-4 pt-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+                <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-bold tracking-tight">Your Documents</h2>
+                    <Badge variant="secondary" className="text-xs">
+                      {documents.length} file{documents.length !== 1 ? "s" : ""}
+                    </Badge>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                    <div className="relative">
+                        <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input 
+                            type="search" 
+                            placeholder="Search documents..." 
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-9 w-full sm:w-[250px] bg-card/40 border-border/50 focus-visible:ring-primary/20 transition-all rounded-full h-9"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {filteredDocs.map((doc, i) => (
               <motion.div
                 key={doc.id}
                 initial="hidden"
@@ -265,25 +334,24 @@ export default function DocumentsPage() {
                 variants={fadeUp}
                 custom={i + 1}
               >
-                <Card className="group border-border/50 bg-card/60 transition-all hover:border-primary/30 hover:shadow-md">
+                <Card className="group border-border/50 bg-card/40 backdrop-blur-sm transition-all hover:border-primary/30 hover:shadow-md hover:bg-card/60">
                   <CardContent className="flex items-center gap-4 p-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                      <File className="h-5 w-5 text-primary" />
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-orange-500/10 border border-orange-500/10 transition-transform group-hover:scale-105">
+                      <FileText className="h-6 w-6 text-orange-500" />
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{doc.filename}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatBytes(doc.size_bytes)} •{" "}
-                        {formatDate(doc.created_at)}
+                      <p className="truncate text-sm font-bold text-foreground">{doc.filename}</p>
+                      <p className="mt-0.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                        {formatBytes(doc.size_bytes)} • {formatDate(doc.created_at)}
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-primary"
+                        className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
                         onClick={() => handleView(doc.id)}
                         disabled={viewLoading}
                       >
@@ -292,8 +360,8 @@ export default function DocumentsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => handleDelete(doc.id)}
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => setDocToDelete(doc.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -363,6 +431,22 @@ export default function DocumentsPage() {
           </motion.div>
         )}
       </main>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!docToDelete} onOpenChange={(open) => !open && setDocToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Document</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this document? This action cannot be undone and extracted text will be permanently lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-white hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

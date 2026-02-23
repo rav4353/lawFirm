@@ -10,6 +10,7 @@ import WorkflowsPage from './pages/WorkflowsPage';
 import WorkflowBuilderPage from './pages/WorkflowBuilderPage';
 import LandingPage from './pages/LandingPage';
 import { ThemeProvider } from './context/ThemeProvider';
+import { Toaster } from 'sonner';
 
 function AppRoutes() {
   const { isAuthenticated, loading } = useAuth();
@@ -50,6 +51,7 @@ function App() {
       <ThemeProvider>
         <AuthProvider>
           <AppRoutes />
+          <Toaster richColors position="top-center" />
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>
