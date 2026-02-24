@@ -32,6 +32,7 @@ import {
   GripVertical,
   Workflow,
   AlertCircle,
+  X,
   CheckCircle2,
 } from 'lucide-react';
 
@@ -42,6 +43,16 @@ import AnalyzeCCPANode from '@/components/workflow/AnalyzeCCPANode';
 import ScoreComplianceNode from '@/components/workflow/ScoreComplianceNode';
 
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 /* ── Node type registry ── */
 const nodeTypes = {
@@ -116,6 +127,7 @@ function WorkflowCanvas() {
 
   const { hasPermission } = useAuth();
   const canEdit = hasPermission('workflows', 'create');
+  const canExecute = hasPermission('workflows', 'execute');
 
   const reactFlowWrapper = useRef(null);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
@@ -126,6 +138,12 @@ function WorkflowCanvas() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(!!workflowId);
   const [errorMsg, setErrorMsg] = useState('');
+
+  const [runOpen, setRunOpen] = useState(false);
+  const [runFile, setRunFile] = useState(null);
+  const [running, setRunning] = useState(false);
+  const [executionResult, setExecutionResult] = useState(null);
+  const [resultsOpen, setResultsOpen] = useState(false);
 
   /* ── Load existing workflow ── */
   useEffect(() => {
@@ -181,11 +199,34 @@ function WorkflowCanvas() {
         position,
         data: { label: item?.label || type, type },
       };
-
       setNodes((nds) => [...nds, newNode]);
     },
     [reactFlowInstance, setNodes, canEdit]
   );
+
+  const startRun = async () => {
+    if (!workflowId) {
+      toast.error('Save the workflow before running it.');
+      return;
+    }
+    if (!runFile) {
+      toast.error('Please select a PDF file to run.');
+      return;
+    }
+    setRunning(true);
+    try {
+      const result = await workflowService.execute(workflowId, runFile);
+      setExecutionResult(result);
+      setResultsOpen(true);
+      toast.success('Workflow executed successfully');
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || 'Workflow execution failed');
+    } finally {
+      setRunning(false);
+      setRunOpen(false);
+      setRunFile(null);
+    }
+  };
 
   /* ── Save workflow ── */
   const handleSave = async () => {
@@ -291,6 +332,21 @@ function WorkflowCanvas() {
                   <Save className="h-4.5 w-4.5" />
                 )}
                 Save
+              </Button>
+            )}
+            {canExecute && (
+              <Button
+                variant="secondary"
+                onClick={() => setRunOpen(true)}
+                disabled={running}
+                className="gap-2 rounded-full px-5 shadow-sm"
+              >
+                {running ? (
+                  <Loader2 className="h-4.5 w-4.5 animate-spin" />
+                ) : (
+                  <FileUp className="h-4.5 w-4.5" />
+                )}
+                Run
               </Button>
             )}
             {!canEdit && (
@@ -404,6 +460,114 @@ function WorkflowCanvas() {
           </ReactFlow>
         </div>
       </div>
+
+      <AlertDialog open={runOpen} onOpenChange={setRunOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Run Workflow</AlertDialogTitle>
+            <AlertDialogDescription>
+              Upload a PDF to execute this workflow end-to-end.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <input
+              type="file"
+              accept=".pdf,application/pdf"
+              onChange={(e) => setRunFile(e.target.files?.[0] || null)}
+            />
+            {runFile && (
+              <div className="text-xs text-muted-foreground">
+                Selected: <span className="font-medium text-foreground">{runFile.name}</span>
+              </div>
+            )}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={running}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={running}
+              onClick={(e) => {
+                e.preventDefault();
+                startRun();
+              }}
+            >
+              {running ? 'Running…' : 'Run'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {resultsOpen && executionResult && (
+        <motion.div
+          className="fixed inset-0 z-50 flex"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <div
+            className="absolute inset-0 bg-background/60 backdrop-blur-sm"
+            onClick={() => setResultsOpen(false)}
+          />
+          <motion.div
+            className="relative ml-auto flex h-full w-full max-w-2xl flex-col border-l border-border bg-background shadow-2xl"
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+          >
+            <div className="flex items-center justify-between border-b border-border px-6 py-4">
+              <div className="min-w-0">
+                <h3 className="truncate text-lg font-semibold">Execution Results</h3>
+                <p className="text-xs text-muted-foreground">
+                  Status: <span className="font-medium text-foreground">{executionResult.status}</span>
+                </p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setResultsOpen(false)}>
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+
+            <div className="flex-1 overflow-auto px-6 py-4 space-y-3">
+              {(executionResult.steps || []).map((step) => (
+                <Card key={step.id} className="border-border/50 bg-card/40">
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-foreground">{step.node_type}</p>
+                        <p className="text-[11px] text-muted-foreground">Node: {step.node_id}</p>
+                      </div>
+                      <Badge variant="secondary" className="text-xs">
+                        {step.status}
+                      </Badge>
+                    </div>
+
+                    {step.output_payload?.analysis_type && (
+                      <div className="space-y-1">
+                        <div className="text-xs">
+                          <span className="font-semibold">Rules:</span> {step.output_payload.rules_triggered}
+                        </div>
+                        <div className="text-xs">
+                          <span className="font-semibold">Confidence:</span> {step.output_payload.confidence_score}
+                        </div>
+                        <div className="text-xs">
+                          <span className="font-semibold">Latency:</span> {step.output_payload.latency_seconds}s
+                        </div>
+                        <div className="text-xs">
+                          <span className="font-semibold">Source:</span> {step.output_payload.source_text}
+                        </div>
+                      </div>
+                    )}
+
+                    {typeof step.output_payload?.score === 'number' && (
+                      <div className="text-xs">
+                        <span className="font-semibold">Score:</span> {step.output_payload.score} / 100
+                        <span className="ml-2 text-muted-foreground">({step.output_payload.verdict})</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
     </div>
   );
 }

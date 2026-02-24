@@ -5,7 +5,7 @@ from api.dependencies.auth import get_current_user, require_permission
 from models.database import get_db
 from models.user import User
 from schemas.document import DocumentResponse, DocumentListResponse
-from services import document_service, opa_service
+from services import document_service, opa_service, audit_service
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
@@ -29,6 +29,18 @@ async def list_documents(
     can_list_all = await opa_service.check_permission(
         current_user.role, "documents", "list_all"
     )
+    audit_service.log_action(
+        db,
+        user=current_user,
+        resource="documents",
+        action="list_all" if can_list_all else "list_own",
+        opa_input={
+            "role": current_user.role,
+            "resource": "documents",
+            "action": "list_all",
+        },
+        opa_decision={"allow": bool(can_list_all)},
+    )
     return document_service.list_documents(db, current_user.id, can_list_all=can_list_all)
 
 
@@ -41,6 +53,19 @@ async def get_document(
     """Get details and extracted text of a specific document."""
     can_read_any = await opa_service.check_permission(
         current_user.role, "documents", "read_any"
+    )
+    audit_service.log_action(
+        db,
+        user=current_user,
+        resource="documents",
+        action="read_any" if can_read_any else "read_own",
+        resource_id=document_id,
+        opa_input={
+            "role": current_user.role,
+            "resource": "documents",
+            "action": "read_any",
+        },
+        opa_decision={"allow": bool(can_read_any)},
     )
     return document_service.get_document(
         db, document_id, current_user.id, can_access_any=can_read_any
@@ -56,6 +81,19 @@ async def delete_document(
     """Delete a document (file + database record)."""
     can_delete_any = await opa_service.check_permission(
         current_user.role, "documents", "delete_any"
+    )
+    audit_service.log_action(
+        db,
+        user=current_user,
+        resource="documents",
+        action="delete_any" if can_delete_any else "delete_own",
+        resource_id=document_id,
+        opa_input={
+            "role": current_user.role,
+            "resource": "documents",
+            "action": "delete_any",
+        },
+        opa_decision={"allow": bool(can_delete_any)},
     )
     document_service.delete_document(
         db, document_id, current_user.id, can_access_any=can_delete_any

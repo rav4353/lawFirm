@@ -79,6 +79,7 @@ const roleConfig = {
       { icon: BarChart3, label: "Firm Analytics", desc: "Revenue & KPI review" },
       { icon: Workflow, label: "All Workflows", desc: "Audit active workflows", link: "/workflows" },
       { icon: Users, label: "Team Overview", desc: "Manage associate loads" },
+      { icon: ShieldCheck, label: "Audit Logs", desc: "Review user actions", link: "/audit-logs" },
     ],
   },
   it_admin: {
@@ -90,7 +91,7 @@ const roleConfig = {
     quickActions: [
       { icon: Settings, label: "System Config", desc: "Manage platform settings" },
       { icon: ShieldCheck, label: "RBAC Policies", desc: "Manage OPA rules" },
-      { icon: BarChart3, label: "Audit Logs", desc: "Review system activity" },
+      { icon: BarChart3, label: "Audit Logs", desc: "Review system activity", link: "/audit-logs" },
     ],
   },
 };
