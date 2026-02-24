@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, UploadFile, File
 from sqlalchemy.orm import Session
 
 from api.dependencies.auth import get_current_user, require_permission
@@ -10,7 +10,8 @@ from schemas.workflow import (
     WorkflowResponse,
     WorkflowListResponse,
 )
-from services import workflow_service, opa_service
+from services import workflow_service, opa_service, execution_service, audit_service
+from schemas.execution import ExecutionResponse
 
 router = APIRouter(prefix="/workflows", tags=["Workflows"])
 
@@ -34,6 +35,18 @@ async def list_workflows(
     can_view_all = await opa_service.check_permission(
         current_user.role, "workflows", "view_all"
     )
+    audit_service.log_action(
+        db,
+        user=current_user,
+        resource="workflows",
+        action="view_all" if can_view_all else "view_own",
+        opa_input={
+            "role": current_user.role,
+            "resource": "workflows",
+            "action": "view_all",
+        },
+        opa_decision={"allow": bool(can_view_all)},
+    )
     return workflow_service.list_workflows(db, current_user.id, can_view_all=can_view_all)
 
 
@@ -46,6 +59,19 @@ async def get_workflow(
     """Get a specific workflow by ID."""
     can_view_all = await opa_service.check_permission(
         current_user.role, "workflows", "view_all"
+    )
+    audit_service.log_action(
+        db,
+        user=current_user,
+        resource="workflows",
+        action="view_all" if can_view_all else "view_own",
+        resource_id=workflow_id,
+        opa_input={
+            "role": current_user.role,
+            "resource": "workflows",
+            "action": "view_all",
+        },
+        opa_decision={"allow": bool(can_view_all)},
     )
     return workflow_service.get_workflow(
         db, workflow_id, current_user.id, can_view_all=can_view_all
@@ -71,3 +97,28 @@ async def delete_workflow(
 ):
     """Delete a workflow. Requires 'workflows/delete' permission."""
     workflow_service.delete_workflow(db, workflow_id, current_user.id)
+
+
+@router.post("/{workflow_id}/execute", response_model=ExecutionResponse, status_code=201)
+async def execute_workflow(
+    workflow_id: str,
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_permission("workflows", "execute")),
+    db: Session = Depends(get_db),
+):
+    """Execute a workflow by uploading a PDF through the workflow engine."""
+    result = await execution_service.execute_workflow(db, workflow_id, file, current_user.id)
+    execution = result["execution"]
+    steps = result["steps"]
+    return {
+        "id": execution.id,
+        "workflow_id": execution.workflow_id,
+        "document_id": execution.document_id,
+        "status": execution.status,
+        "triggered_by": execution.triggered_by,
+        "started_at": execution.started_at,
+        "finished_at": execution.finished_at,
+        "error_message": execution.error_message,
+        "created_at": execution.created_at,
+        "steps": steps,
+    }

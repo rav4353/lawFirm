@@ -8,6 +8,7 @@ import DashboardPage from './pages/DashboardPage';
 import DocumentsPage from './pages/DocumentsPage';
 import WorkflowsPage from './pages/WorkflowsPage';
 import WorkflowBuilderPage from './pages/WorkflowBuilderPage';
+import AuditLogsPage from './pages/AuditLogsPage';
 import LandingPage from './pages/LandingPage';
 import { ThemeProvider } from './context/ThemeProvider';
 import { Toaster } from 'sonner';
@@ -38,6 +39,11 @@ function AppRoutes() {
       <Route path="/workflows/builder" element={
         <ProtectedRoute>
           <WorkflowBuilderPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/audit-logs" element={
+        <ProtectedRoute requiredPermission={{ resource: 'audit_logs', action: 'view_own' }}>
+          <AuditLogsPage />
         </ProtectedRoute>
       } />
       <Route path="*" element={<Navigate to="/" replace />} />
