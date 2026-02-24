@@ -79,7 +79,6 @@ const roleConfig = {
       { icon: BarChart3, label: "Firm Analytics", desc: "Revenue & KPI review" },
       { icon: Workflow, label: "All Workflows", desc: "Audit active workflows", link: "/workflows" },
       { icon: Users, label: "Team Overview", desc: "Manage associate loads" },
-      { icon: ShieldCheck, label: "Audit Logs", desc: "Review user actions", link: "/audit-logs" },
     ],
   },
   it_admin: {
@@ -91,7 +90,7 @@ const roleConfig = {
     quickActions: [
       { icon: Settings, label: "System Config", desc: "Manage platform settings" },
       { icon: ShieldCheck, label: "RBAC Policies", desc: "Manage OPA rules" },
-      { icon: BarChart3, label: "Audit Logs", desc: "Review system activity", link: "/audit-logs" },
+      { icon: BarChart3, label: "Audit Logs", desc: "Review system activity" },
     ],
   },
 };
@@ -286,29 +285,29 @@ export default function DashboardPage() {
             {statCards.map((s) => (
                 <Card key={s.label} className={`group relative h-full border-border/40 bg-card/40 backdrop-blur-xl transition-all duration-300 hover:bg-card/60 hover:-translate-y-1 shadow-sm hover:shadow-lg ${s.glow}`}>
                     <div className={`absolute inset-x-0 -top-px h-px w-full bg-linear-to-r from-transparent via-${s.color.split('-')[1]}-500/30 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100`} />
-                    <CardContent className="flex flex-col p-4">
+                    <CardContent className="flex flex-col gap-4 p-5">
                     <div className="flex items-start justify-between">
-                        <div className={`flex h-9 w-9 items-center justify-center rounded-lg shadow-inner ${s.bg}`}>
-                            <s.icon className={`h-4 w-4 ${s.color}`} />
+                        <div className={`flex h-10 w-10 items-center justify-center rounded-xl shadow-inner ${s.bg}`}>
+                            <s.icon className={`h-5 w-5 ${s.color}`} />
                         </div>
                         {/* Status indicator pill */}
                         {s.status === 'warning' && (
-                            <span className="relative flex h-2 w-2">
+                            <span className="relative flex h-2.5 w-2.5">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
                             </span>
                         )}
                         {s.status === 'good' && (
                             <div className="flex h-2 w-2 rounded-full bg-emerald-500/50" />
                         )}
                     </div>
-                    <div className="mt-3">
-                        <p className="text-2xl font-extrabold tracking-tight text-foreground">{s.value}</p>
+                    <div className="space-y-1 mt-2">
+                        <p className="text-3xl font-extrabold tracking-tight text-foreground">{s.value}</p>
                         <p className="text-sm font-medium text-muted-foreground">{s.label}</p>
                     </div>
-                    <div className="mt-3 pt-3 border-t border-border/30 flex items-center gap-2">
-                        <TrendingUp className={`h-3 w-3 ${s.status === 'warning' ? 'text-amber-500/70' : 'text-muted-foreground/50'}`} />
-                        <p className={`text-[10px] font-bold uppercase tracking-wider ${s.status === 'warning' ? 'text-amber-500/90' : 'text-muted-foreground/70'}`}>
+                    <div className="mt-auto pt-4 border-t border-border/30 flex items-center gap-2">
+                        <TrendingUp className={`h-3.5 w-3.5 ${s.status === 'warning' ? 'text-amber-500/70' : 'text-muted-foreground/50'}`} />
+                        <p className={`text-[11px] font-bold uppercase tracking-wide ${s.status === 'warning' ? 'text-amber-500/90' : 'text-muted-foreground/70'}`}>
                             {s.trend}
                         </p>
                     </div>

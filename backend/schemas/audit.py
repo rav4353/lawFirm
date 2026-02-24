@@ -13,7 +13,7 @@ class AuditLogResponse(BaseModel):
     timestamp: datetime
     opa_input: dict | None
     opa_decision: dict | None
-    metadata: dict | None
+    extra_metadata: dict | None
 
     model_config = ConfigDict(from_attributes=True)
 
