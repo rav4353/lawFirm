@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_serializer
 
 
 class AnalysisRequest(BaseModel):
@@ -31,5 +31,9 @@ class AnalysisResultResponse(BaseModel):
     
     analyzed_by: str
     created_at: datetime
+
+    @field_serializer("created_at")
+    def serialize_dt(self, dt: datetime):
+        return dt.isoformat().replace("+00:00", "Z") if dt.tzinfo else dt.isoformat() + "Z"
 
     model_config = ConfigDict(from_attributes=True)

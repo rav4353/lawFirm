@@ -30,8 +30,10 @@ const fadeUp = {
 };
 
 function formatDate(dateStr) {
+  if (!dateStr) return "N/A";
   try {
-    return new Date(dateStr).toLocaleString();
+    const date = new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z");
+    return date.toLocaleString();
   } catch {
     return dateStr;
   }

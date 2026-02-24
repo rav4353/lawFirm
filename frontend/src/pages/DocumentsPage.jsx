@@ -157,14 +157,17 @@ export default function DocumentsPage() {
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
-  const formatDate = (dateStr) =>
-    new Date(dateStr).toLocaleDateString("en-US", {
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "N/A";
+    const date = new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z");
+    return date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-background">

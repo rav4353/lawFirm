@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_serializer
 
 
 class AuditLogResponse(BaseModel):
@@ -11,6 +11,11 @@ class AuditLogResponse(BaseModel):
     action: str
     resource_id: str | None
     timestamp: datetime
+
+    @field_serializer("timestamp")
+    def serialize_dt(self, dt: datetime):
+        return dt.isoformat().replace("+00:00", "Z") if dt.tzinfo else dt.isoformat() + "Z"
+
     opa_input: dict | None
     opa_decision: dict | None
     additional_data: dict | None
