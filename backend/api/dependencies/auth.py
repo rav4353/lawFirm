@@ -6,7 +6,7 @@ from models.database import get_db
 from models.user import User
 from repositories import user_repository
 from services.auth_service import decode_access_token
-from services import opa_service
+from services import opa_service, audit_service
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
@@ -43,11 +43,27 @@ def require_permission(resource: str, action: str):
 
     async def permission_checker(
         current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
     ) -> User:
+        opa_input = {
+            "role": current_user.role,
+            "resource": resource,
+            "action": action,
+        }
         allowed = await opa_service.check_permission(
             role=current_user.role,
             resource=resource,
             action=action,
+        )
+
+        audit_service.log_action(
+            db,
+            user=current_user,
+            resource=resource,
+            action=action,
+            resource_id=None,
+            opa_input=opa_input,
+            opa_decision={"allow": bool(allowed)},
         )
         if not allowed:
             raise HTTPException(

@@ -9,27 +9,29 @@ default allow := false
 permissions := {
     "paralegal": {
         "documents":  ["upload", "list_own", "read_own", "delete_own"],
-        "workflows":  ["view_own"],
+        "workflows":  ["view_own", "execute"],
         "audit_logs": ["view_own"],
         "users":      ["view_self"],
     },
     "associate": {
         "documents":  ["upload", "list_own", "read_own", "read_any", "delete_own"],
-        "workflows":  ["create", "view_own"],
+        "workflows":  ["create", "view_own", "execute"],
         "audit_logs": ["view_own"],
         "users":      ["view_self"],
     },
     "partner": {
         "documents":  ["upload", "list_own", "list_all", "read_own", "read_any", "delete_own", "delete_any"],
-        "workflows":  ["create", "view_own", "view_all", "approve", "delete"],
+        "workflows":  ["create", "view_own", "view_all", "execute", "approve", "delete"],
         "audit_logs": ["view_own", "view_all", "export"],
         "users":      ["view_self", "list_all"],
+        "prompts":    ["view"],
     },
     "it_admin": {
-        "documents":  ["list_all"],
-        "workflows":  ["view_all"],
+        "documents":  ["list_all", "read_any"],
+        "workflows":  ["view_all", "execute"],
         "audit_logs": ["view_own", "view_all", "export"],
         "users":      ["view_self", "list_all", "create", "update_role", "deactivate"],
+        "prompts":    ["create", "view", "update"],
     },
 }
 

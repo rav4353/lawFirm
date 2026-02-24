@@ -17,11 +17,6 @@ async def create_prompt(
     db: Session = Depends(get_db),
 ):
     """Create a new prompt version. Requires 'prompts/create' permission."""
-    # If this is the first one for this type, or it was requested to be active,
-    # handle deactivating the others.
-    if data.is_active:
-        prompt_repository.set_active_prompt(db, data.analysis_type, "dummy-id-to-deactivate-all")
-        
     prompt = prompt_repository.create_prompt_version(
         db,
         analysis_type=data.analysis_type,
@@ -29,6 +24,9 @@ async def create_prompt(
         system_prompt=data.system_prompt,
         is_active=data.is_active,
     )
+
+    if data.is_active:
+        prompt = prompt_repository.set_active_prompt(db, data.analysis_type, prompt.id)
     return prompt
 
 

@@ -92,12 +92,20 @@ test_paralegal_can_view_own_workflow if {
     authz.allow with input as {"role": "paralegal", "resource": "workflows", "action": "view_own"}
 }
 
+test_paralegal_can_execute_workflow if {
+    authz.allow with input as {"role": "paralegal", "resource": "workflows", "action": "execute"}
+}
+
 test_paralegal_cannot_create_workflow if {
     not authz.allow with input as {"role": "paralegal", "resource": "workflows", "action": "create"}
 }
 
 test_associate_can_create_workflow if {
     authz.allow with input as {"role": "associate", "resource": "workflows", "action": "create"}
+}
+
+test_associate_can_execute_workflow if {
+    authz.allow with input as {"role": "associate", "resource": "workflows", "action": "execute"}
 }
 
 test_associate_cannot_approve_workflow if {
@@ -112,8 +120,16 @@ test_partner_can_delete_workflow if {
     authz.allow with input as {"role": "partner", "resource": "workflows", "action": "delete"}
 }
 
+test_partner_can_execute_workflow if {
+    authz.allow with input as {"role": "partner", "resource": "workflows", "action": "execute"}
+}
+
 test_admin_can_view_all_workflows if {
     authz.allow with input as {"role": "it_admin", "resource": "workflows", "action": "view_all"}
+}
+
+test_admin_can_execute_workflow if {
+    authz.allow with input as {"role": "it_admin", "resource": "workflows", "action": "execute"}
 }
 
 test_admin_cannot_create_workflow if {
@@ -185,6 +201,26 @@ test_admin_can_deactivate_user if {
 }
 
 # ═══════════════════════════════════════════════
+# PROMPTS
+# ═══════════════════════════════════════════════
+
+test_partner_can_view_prompts if {
+    authz.allow with input as {"role": "partner", "resource": "prompts", "action": "view"}
+}
+
+test_partner_cannot_create_prompts if {
+    not authz.allow with input as {"role": "partner", "resource": "prompts", "action": "create"}
+}
+
+test_admin_can_create_prompts if {
+    authz.allow with input as {"role": "it_admin", "resource": "prompts", "action": "create"}
+}
+
+test_admin_can_update_prompts if {
+    authz.allow with input as {"role": "it_admin", "resource": "prompts", "action": "update"}
+}
+
+# ═══════════════════════════════════════════════
 # EDGE CASES
 # ═══════════════════════════════════════════════
 
@@ -210,10 +246,10 @@ test_empty_input_denied if {
 
 test_paralegal_allowed_actions_count if {
     actions := authz.allowed_actions with input as {"role": "paralegal"}
-    count(actions) == 7  # 4 docs + 1 workflow + 1 audit + 1 user
+    count(actions) == 8  # 4 docs + 2 workflow + 1 audit + 1 user
 }
 
 test_admin_allowed_actions_count if {
     actions := authz.allowed_actions with input as {"role": "it_admin"}
-    count(actions) == 10  # 1 doc + 1 wf + 3 audit + 5 users
+    count(actions) == 15  # 2 doc + 2 wf + 3 audit + 5 users + 3 prompts
 }

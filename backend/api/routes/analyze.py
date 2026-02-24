@@ -6,7 +6,7 @@ from models.database import get_db
 from models.user import User
 from schemas.analysis import AnalysisRequest, AnalysisResultResponse
 from repositories import analysis_repository
-from services import analyze_service
+from services import analyze_service, opa_service, document_service
 
 router = APIRouter(prefix="/analyze", tags=["Analysis"])
 
@@ -18,10 +18,17 @@ async def analyze_document(
     db: Session = Depends(get_db),
 ):
     """Trigger an AI analysis on a document. Returns the Reasoning Path."""
-    # The actual ownership check (own vs any) happens in document service,
-    # but for simplicity here we assume if they can reach this endpoint they have basic doc rights.
-    # A true implementation would pass the `can_access_any` flag down.
-    
+    can_read_any = await opa_service.check_permission(
+        current_user.role, "documents", "read_any"
+    )
+    # Enforce ownership / access by actually fetching via document_service
+    document_service.get_document(
+        db,
+        request.document_id,
+        current_user.id,
+        can_access_any=can_read_any,
+    )
+
     result = await analyze_service.process_analysis(db, request, current_user.id)
     return result
 
@@ -39,5 +46,16 @@ async def get_analysis_result(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Analysis result not found.",
         )
-        
+
+    can_read_any = await opa_service.check_permission(
+        current_user.role, "documents", "read_any"
+    )
+    # If user can't read any, ensure the referenced document is theirs
+    document_service.get_document(
+        db,
+        result.document_id,
+        current_user.id,
+        can_access_any=can_read_any,
+    )
+
     return result

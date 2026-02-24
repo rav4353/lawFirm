@@ -24,4 +24,13 @@ export const workflowService = {
   async remove(id) {
     await api.delete(`/workflows/${id}`);
   },
+
+  async execute(id, file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post(`/workflows/${id}/execute`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
 };
