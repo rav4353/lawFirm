@@ -23,4 +23,4 @@ class AuditLog(Base):
 
     opa_input = Column(JSON, nullable=True)
     opa_decision = Column(JSON, nullable=True)
-    extra_metadata = Column(JSON, nullable=True)
+    additional_data = Column(JSON, nullable=True)

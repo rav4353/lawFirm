@@ -29,5 +29,5 @@ def log_action(
         resource_id=resource_id,
         opa_input=opa_input,
         opa_decision=opa_decision,
-        extra_metadata=metadata,
+        additional_data=metadata,
     )
