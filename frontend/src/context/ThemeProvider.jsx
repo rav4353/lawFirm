@@ -18,16 +18,8 @@ export function ThemeProvider({ children }) {
 
   useEffect(() => {
     const root = window.document.documentElement;
-    // Force dark mode on specific paths as requested by user
-    const isDarkModeForced = location.pathname === "/login" || location.pathname === "/register";
-
     root.classList.remove("light", "dark");
-    
-    if (isDarkModeForced) {
-      root.classList.add("dark");
-    } else {
-      root.classList.add(theme);
-    }
+    root.classList.add(theme);
   }, [theme, location.pathname]);
 
   return (

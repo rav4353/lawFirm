@@ -9,7 +9,10 @@ import DocumentsPage from './pages/DocumentsPage';
 import WorkflowsPage from './pages/WorkflowsPage';
 import WorkflowBuilderPage from './pages/WorkflowBuilderPage';
 import AuditLogsPage from './pages/AuditLogsPage';
+import UserManagementPage from './pages/UserManagementPage';
+import RBACPoliciesPage from './pages/RBACPoliciesPage';
 import LandingPage from './pages/LandingPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import { ThemeProvider } from './context/ThemeProvider';
 import { Toaster } from 'sonner';
 
@@ -21,6 +24,7 @@ function AppRoutes() {
       <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
       <Route path="/login" element={isAuthenticated && !loading ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
       <Route path="/register" element={isAuthenticated && !loading ? <Navigate to="/dashboard" replace /> : <RegisterPage />} />
+      <Route path="/forgot-password" element={isAuthenticated && !loading ? <Navigate to="/dashboard" replace /> : <ForgotPasswordPage />} />
       <Route path="/dashboard" element={
         <ProtectedRoute>
           <DashboardPage />
@@ -44,6 +48,16 @@ function AppRoutes() {
       <Route path="/audit-logs" element={
         <ProtectedRoute requiredPermission={{ resource: 'audit_logs', action: 'view_own' }}>
           <AuditLogsPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/system/users" element={
+        <ProtectedRoute requiredPermission={{ resource: 'users', action: 'list' }}>
+          <UserManagementPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/system/rbac" element={
+        <ProtectedRoute>
+          <RBACPoliciesPage />
         </ProtectedRoute>
       } />
       <Route path="*" element={<Navigate to="/" replace />} />

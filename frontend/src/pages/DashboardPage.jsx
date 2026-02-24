@@ -88,9 +88,9 @@ const roleConfig = {
     bg: "bg-violet-500/10",
     border: "border-violet-500/20",
     quickActions: [
-      { icon: Settings, label: "System Config", desc: "Manage platform settings" },
-      { icon: ShieldCheck, label: "RBAC Policies", desc: "Manage OPA rules" },
-      { icon: BarChart3, label: "Audit Logs", desc: "Review system activity" },
+      { icon: Users, label: "User Management", desc: "Manage users & roles", link: "/system/users" },
+      { icon: ShieldCheck, label: "RBAC Policies", desc: "Manage OPA rules", link: "/system/rbac" },
+      { icon: BarChart3, label: "Audit Logs", desc: "Review system activity", link: "/audit-logs" },
     ],
   },
 };

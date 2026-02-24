@@ -5,17 +5,24 @@ from sqlalchemy.orm import Session
 from api.dependencies.auth import get_current_user
 from models.database import get_db
 from models.user import User
-from schemas.auth import UserCreate, UserResponse, Token
+from schemas.auth import UserCreate, UserResponse, Token, ForgotPasswordRequest, ResetPassword
 from services import auth_service, opa_service
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 @router.post("/register", response_model=UserResponse, status_code=201)
-def register(user_data: UserCreate, db: Session = Depends(get_db)):
-    """Register a new user account."""
-    user = auth_service.register_user(db, user_data)
+def register(user_data: UserCreate, otp_code: str, db: Session = Depends(get_db)):
+    """Register a new user account with OTP verification."""
+    user = auth_service.register_user(db, user_data, otp_code)
     return user
+
+
+@router.post("/registration-otp")
+def send_registration_otp(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """Send an OTP code to verify email before registration."""
+    auth_service.send_registration_otp(db, data.email)
+    return {"message": "OTP sent successfully."}
 
 
 @router.post("/login", response_model=Token)
@@ -41,3 +48,17 @@ async def get_permissions(current_user: User = Depends(get_current_user)):
     """
     actions = await opa_service.get_allowed_actions(current_user.role)
     return {"role": current_user.role, "permissions": actions}
+
+
+@router.post("/forgot-password")
+def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """Request a password reset OTP."""
+    auth_service.forgot_password(db, data.email)
+    return {"message": "If the email is registered, you will receive an OTP code."}
+
+
+@router.post("/reset-password")
+def reset_password(data: ResetPassword, db: Session = Depends(get_db)):
+    """Reset password using OTP."""
+    auth_service.reset_password(db, data)
+    return {"message": "Password reset successfully."}

@@ -6,8 +6,9 @@ from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from config import settings
-from repositories import user_repository
-from schemas.auth import UserCreate, Token
+from repositories import user_repository, otp_repository
+from schemas.auth import UserCreate, Token, ResetPassword
+from services.email_service import email_service
 
 
 def hash_password(password: str) -> str:
@@ -37,8 +38,15 @@ def decode_access_token(token: str) -> dict:
         )
 
 
-def register_user(db: Session, user_data: UserCreate):
-    """Register a new user. Raises 400 if email already taken."""
+def register_user(db: Session, user_data: UserCreate, otp_code: str):
+    """Verify OTP and register a new user."""
+    is_valid = otp_repository.verify_otp(db, user_data.email, otp_code, "account_verification")
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired OTP code",
+        )
+    
     existing = user_repository.get_user_by_email(db, user_data.email)
     if existing:
         raise HTTPException(
@@ -47,6 +55,19 @@ def register_user(db: Session, user_data: UserCreate):
         )
     hashed = hash_password(user_data.password)
     return user_repository.create_user(db, user_data, hashed)
+
+
+def send_registration_otp(db: Session, email: str):
+    """Send OTP for account verification."""
+    existing = user_repository.get_user_by_email(db, email)
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered",
+        )
+    
+    otp_code = otp_repository.generate_otp(db, email, "account_verification")
+    return email_service.send_otp_email(email, otp_code, "account_verification")
 
 
 def authenticate_user(db: Session, email: str, password: str) -> Token:
@@ -59,3 +80,35 @@ def authenticate_user(db: Session, email: str, password: str) -> Token:
         )
     token = create_access_token({"sub": user.id, "role": user.role})
     return Token(access_token=token)
+
+
+def forgot_password(db: Session, email: str):
+    """Generate OTP and send email for password reset."""
+    user = user_repository.get_user_by_email(db, email)
+    if not user:
+        # For security, don't reveal if user exists. Just return.
+        return True
+    
+    otp_code = otp_repository.generate_otp(db, email, "password_reset")
+    return email_service.send_otp_email(email, otp_code, "password_reset")
+
+
+def reset_password(db: Session, data: ResetPassword):
+    """Verify OTP and update user password."""
+    is_valid = otp_repository.verify_otp(db, data.email, data.otp_code, "password_reset")
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired OTP code",
+        )
+    
+    user = user_repository.get_user_by_email(db, data.email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    
+    hashed = hash_password(data.new_password)
+    user_repository.update_user(db, user, hashed_password=hashed)
+    return True

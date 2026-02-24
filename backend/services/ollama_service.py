@@ -1,0 +1,150 @@
+"""
+Ollama Integration Service for GDPR/CCPA Compliance Analysis.
+Sends document text to a local Ollama instance and returns structured compliance results.
+"""
+
+import json
+import logging
+from pathlib import Path
+from typing import Any
+
+import httpx
+
+from config import settings
+
+logger = logging.getLogger(__name__)
+
+OLLAMA_URL = getattr(settings, "OLLAMA_URL", "http://localhost:11434")
+MODEL_NAME = "mistral"
+INFERENCE_TIMEOUT = 120.0  # 120s for compliance analysis (longer docs)
+
+# Load the prompt template once at module level
+_PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompts" / "gdpr_ccpa_analysis_prompt.md"
+_SYSTEM_PROMPT: str | None = None
+
+
+def _get_system_prompt() -> str:
+    """Lazy-load the system prompt from disk."""
+    global _SYSTEM_PROMPT
+    if _SYSTEM_PROMPT is None:
+        try:
+            _SYSTEM_PROMPT = _PROMPT_PATH.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            logger.warning("Prompt file not found at %s, using inline fallback.", _PROMPT_PATH)
+            _SYSTEM_PROMPT = (
+                "You are a legal compliance AI. Analyze the document for GDPR and CCPA compliance. "
+                "Return ONLY valid JSON with keys: gdpr_status, ccpa_status, score, "
+                "detected_sections, missing_sections, ai_suggestions."
+            )
+    return _SYSTEM_PROMPT
+
+
+# Default structure returned on failure
+_EMPTY_RESULT: dict[str, Any] = {
+    "gdpr_status": "FAIL",
+    "ccpa_status": "FAIL",
+    "score": 0,
+    "detected_sections": [],
+    "missing_sections": [],
+    "ai_suggestions": ["Analysis could not be completed. Please try again."],
+}
+
+
+async def analyze_document_compliance(document_text: str) -> dict[str, Any]:
+    """
+    Send extracted document text to Ollama for GDPR/CCPA compliance analysis.
+
+    Args:
+        document_text: The full text extracted from the PDF document.
+
+    Returns:
+        A dict with keys: gdpr_status, ccpa_status, score, detected_sections,
+        missing_sections, ai_suggestions.
+    """
+    system_prompt = _get_system_prompt()
+
+    full_prompt = f"""{system_prompt}
+
+--- DOCUMENT TEXT START ---
+{document_text[:8000]}
+--- DOCUMENT TEXT END ---
+"""
+
+    payload = {
+        "model": MODEL_NAME,
+        "prompt": full_prompt,
+        "format": "json",
+        "stream": False,
+        "options": {
+            "temperature": 0.1,
+        },
+    }
+
+    try:
+        logger.info("Sending document (%d chars) to Ollama for compliance analysis...", len(document_text))
+        async with httpx.AsyncClient(timeout=INFERENCE_TIMEOUT) as client:
+            response = await client.post(f"{OLLAMA_URL}/api/generate", json=payload)
+            response.raise_for_status()
+
+            data = response.json()
+            response_text = data.get("response", "{}")
+
+            try:
+                result = json.loads(response_text)
+                # Validate and normalise the required fields
+                return _normalise_result(result)
+            except json.JSONDecodeError:
+                logger.error("Ollama returned invalid JSON: %s", response_text[:500])
+                return _error_result("AI returned an invalid response format.")
+
+    except httpx.TimeoutException:
+        logger.error("Ollama inference timed out after %ss", INFERENCE_TIMEOUT)
+        return _error_result("AI analysis timed out. The document may be too large.")
+
+    except httpx.ConnectError:
+        logger.error("Cannot connect to Ollama at %s. Is Ollama running?", OLLAMA_URL)
+        return _error_result("AI analysis service unavailable. Please ensure Ollama is running.")
+
+    except httpx.RequestError as exc:
+        logger.error("Ollama request failed: %s", exc)
+        return _error_result("AI analysis service unavailable.")
+
+    except Exception as exc:
+        logger.exception("Unexpected error during compliance analysis: %s", exc)
+        return _error_result(f"Unexpected error: {exc}")
+
+
+def _normalise_result(raw: dict[str, Any]) -> dict[str, Any]:
+    """Ensure the AI response has exactly the expected shape."""
+    return {
+        "gdpr_status": str(raw.get("gdpr_status", "FAIL")).upper(),
+        "ccpa_status": str(raw.get("ccpa_status", "FAIL")).upper(),
+        "score": _clamp(raw.get("score", 0), 0, 100),
+        "detected_sections": _to_str_list(raw.get("detected_sections", [])),
+        "missing_sections": _to_str_list(raw.get("missing_sections", [])),
+        "ai_suggestions": _to_str_list(raw.get("ai_suggestions", [])),
+    }
+
+
+def _error_result(message: str) -> dict[str, Any]:
+    """Return a safe error result without crashing."""
+    result = dict(_EMPTY_RESULT)
+    result["ai_suggestions"] = [message]
+    return result
+
+
+def _clamp(value, lo, hi):
+    """Clamp a numeric value within [lo, hi]."""
+    try:
+        return max(lo, min(hi, int(value)))
+    except (TypeError, ValueError):
+        return lo
+
+
+def _to_str_list(value) -> list[str]:
+    """Coerce a value into a list of strings."""
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    if isinstance(value, str):
+        return [value]
+    return []

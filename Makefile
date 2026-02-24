@@ -1,10 +1,11 @@
-.PHONY: help install frontend-dev backend-dev build-images deploy
+.PHONY: help install frontend-dev backend-dev build-images deploy dev
 
 help:
 	@echo "Veritas AI - Development & Deployment"
 	@echo ""
 	@echo "Usage:"
 	@echo "  make install      Install all dependencies"
+	@echo "  make dev          Run both frontend and backend (Mac/Linux)"
 	@echo "  make frontend-dev Run frontend in development mode"
 	@echo "  make backend-dev  Run backend in development mode"
 	@echo "  make build-images Build backend/frontend Docker images"
@@ -13,6 +14,9 @@ help:
 install:
 	cd frontend && npm install
 	cd backend && python3 -m venv venv && ./venv/bin/activate && pip install -r requirements.txt
+
+dev:
+	./dev.sh
 
 frontend-dev:
 	cd frontend && npm run dev

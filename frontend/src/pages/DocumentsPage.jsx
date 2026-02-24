@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { documentService } from "@/services/documents";
+import { analysisService } from "@/services/analysis";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,14 @@ import {
   CloudUpload,
   File,
   Search,
+  Shield,
+  ShieldCheck,
+  ShieldX,
+  CheckCircle2,
+  XCircle,
+  Lightbulb,
+  BarChart3,
+  Sparkles,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -50,9 +59,239 @@ const fadeUp = {
   }),
 };
 
+/* ── Compliance Result Panel ── */
+function CompliancePanel({ result, onClose }) {
+  if (!result) return null;
+
+  const scoreColor =
+    result.score >= 80
+      ? "text-emerald-500"
+      : result.score >= 50
+        ? "text-amber-500"
+        : "text-red-500";
+
+  const scoreBg =
+    result.score >= 80
+      ? "from-emerald-500/20 to-emerald-500/5"
+      : result.score >= 50
+        ? "from-amber-500/20 to-amber-500/5"
+        : "from-red-500/20 to-red-500/5";
+
+  const scoreTrack =
+    result.score >= 80
+      ? "stroke-emerald-500"
+      : result.score >= 50
+        ? "stroke-amber-500"
+        : "stroke-red-500";
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-background/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      {/* Panel */}
+      <motion.div
+        className="relative ml-auto flex h-full w-full max-w-2xl flex-col border-l border-border bg-background shadow-2xl"
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", damping: 30, stiffness: 300 }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 border border-primary/20">
+              <Shield className="h-5 w-5 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="truncate text-lg font-bold">Compliance Report</h3>
+              <p className="truncate text-xs text-muted-foreground">
+                {result.document_name}
+              </p>
+            </div>
+          </div>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
+
+        <div className="flex-1 overflow-auto">
+          {/* ── Score Section ── */}
+          <div className={`mx-6 mt-6 rounded-2xl bg-linear-to-br ${scoreBg} border border-border/50 p-6`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">
+                  Compliance Score
+                </p>
+                <div className="flex items-baseline gap-1">
+                  <span className={`text-5xl font-black tracking-tight ${scoreColor}`}>
+                    {result.score}
+                  </span>
+                  <span className="text-lg text-muted-foreground font-medium">
+                    / 100
+                  </span>
+                </div>
+              </div>
+
+              {/* Circular progress */}
+              <div className="relative h-20 w-20">
+                <svg className="h-20 w-20 -rotate-90" viewBox="0 0 80 80">
+                  <circle
+                    cx="40"
+                    cy="40"
+                    r="35"
+                    fill="none"
+                    className="stroke-muted/30"
+                    strokeWidth="6"
+                  />
+                  <circle
+                    cx="40"
+                    cy="40"
+                    r="35"
+                    fill="none"
+                    className={scoreTrack}
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    strokeDasharray={`${(result.score / 100) * 220} 220`}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <BarChart3 className={`h-5 w-5 ${scoreColor}`} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Status Badges ── */}
+          <div className="grid grid-cols-2 gap-3 mx-6 mt-4">
+            <StatusCard
+              label="GDPR"
+              status={result.gdpr_status}
+            />
+            <StatusCard
+              label="CCPA"
+              status={result.ccpa_status}
+            />
+          </div>
+
+          {/* ── Detected Sections ── */}
+          {result.detected_sections?.length > 0 && (
+            <div className="mx-6 mt-6">
+              <h4 className="flex items-center gap-2 text-sm font-bold text-foreground mb-3">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                Detected Sections
+              </h4>
+              <div className="space-y-1.5">
+                {result.detected_sections.map((section, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="flex items-center gap-2.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                    <span className="text-sm capitalize">{section}</span>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Missing Sections ── */}
+          {result.missing_sections?.length > 0 && (
+            <div className="mx-6 mt-6">
+              <h4 className="flex items-center gap-2 text-sm font-bold text-foreground mb-3">
+                <XCircle className="h-4 w-4 text-red-500" />
+                Missing Sections
+              </h4>
+              <div className="space-y-1.5">
+                {result.missing_sections.map((section, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="flex items-center gap-2.5 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2"
+                  >
+                    <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                    <span className="text-sm">{section}</span>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── AI Suggestions ── */}
+          {result.ai_suggestions?.length > 0 && (
+            <div className="mx-6 mt-6 mb-6">
+              <h4 className="flex items-center gap-2 text-sm font-bold text-foreground mb-3">
+                <Lightbulb className="h-4 w-4 text-amber-500" />
+                AI Suggestions
+              </h4>
+              <div className="space-y-2">
+                {result.ai_suggestions.map((suggestion, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.06 }}
+                    className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3"
+                  >
+                    <p className="text-sm leading-relaxed">{suggestion}</p>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function StatusCard({ label, status }) {
+  const pass = status === "PASS";
+  return (
+    <div
+      className={`flex items-center gap-3 rounded-xl border p-4 transition-all ${
+        pass
+          ? "border-emerald-500/30 bg-emerald-500/5"
+          : "border-red-500/30 bg-red-500/5"
+      }`}
+    >
+      {pass ? (
+        <ShieldCheck className="h-6 w-6 text-emerald-500" />
+      ) : (
+        <ShieldX className="h-6 w-6 text-red-500" />
+      )}
+      <div>
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          {label}
+        </p>
+        <p
+          className={`text-lg font-black ${
+            pass ? "text-emerald-500" : "text-red-500"
+          }`}
+        >
+          {status}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ── Main Page ── */
 export default function DocumentsPage() {
   const fileInputRef = useRef(null);
-
 
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -63,6 +302,10 @@ export default function DocumentsPage() {
   const [viewLoading, setViewLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [docToDelete, setDocToDelete] = useState(null);
+
+  // Compliance analysis state
+  const [analyzingDocId, setAnalyzingDocId] = useState(null);
+  const [complianceResult, setComplianceResult] = useState(null);
 
   const fetchDocuments = useCallback(async () => {
     try {
@@ -148,6 +391,36 @@ export default function DocumentsPage() {
       setError("Failed to load document details.");
     } finally {
       setViewLoading(false);
+    }
+  };
+
+  // ── Compliance Analysis ──
+  const handleAnalyze = async (docId) => {
+    setAnalyzingDocId(docId);
+    toast.info("Starting AI compliance analysis…");
+    try {
+      const result = await analysisService.analyzeDocument(docId);
+      setComplianceResult(result);
+      toast.success(`Analysis complete — Score: ${result.score}/100`);
+    } catch (err) {
+      const msg =
+        err.response?.data?.detail || "Analysis failed. Is Ollama running?";
+      toast.error(msg);
+    } finally {
+      setAnalyzingDocId(null);
+    }
+  };
+
+  const handleViewAnalysis = async (docId) => {
+    try {
+      const result = await analysisService.getAnalysis(docId);
+      setComplianceResult(result);
+    } catch (err) {
+      if (err.response?.status === 404) {
+        toast.info("No analysis found. Click 'Analyze' to run one.");
+      } else {
+        toast.error("Failed to load analysis.");
+      }
     }
   };
 
@@ -351,6 +624,39 @@ export default function DocumentsPage() {
                     </div>
 
                     <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                      {/* Analyze Button */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 gap-1.5 text-xs font-semibold text-primary hover:text-primary hover:bg-primary/10"
+                        onClick={() => handleAnalyze(doc.id)}
+                        disabled={analyzingDocId === doc.id}
+                      >
+                        {analyzingDocId === doc.id ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            Analyzing…
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-3.5 w-3.5" />
+                            Analyze
+                          </>
+                        )}
+                      </Button>
+
+                      {/* View Analysis Button */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                        onClick={() => handleViewAnalysis(doc.id)}
+                        title="View latest analysis"
+                      >
+                        <Shield className="h-4 w-4" />
+                      </Button>
+
+                      {/* View Document Button */}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -360,6 +666,8 @@ export default function DocumentsPage() {
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
+
+                      {/* Delete Button */}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -377,62 +685,76 @@ export default function DocumentsPage() {
         )}
 
         {/* ── Extracted text viewer (slide-in panel) ── */}
-        {selectedDoc && (
-          <motion.div
-            className="fixed inset-0 z-50 flex"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            {/* Backdrop */}
-            <div
-              className="absolute inset-0 bg-background/60 backdrop-blur-sm"
-              onClick={() => setSelectedDoc(null)}
-            />
-
-            {/* Panel */}
+        <AnimatePresence>
+          {selectedDoc && (
             <motion.div
-              className="relative ml-auto flex h-full w-full max-w-2xl flex-col border-l border-border bg-background shadow-2xl"
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="fixed inset-0 z-50 flex"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
             >
-              <div className="flex items-center justify-between border-b border-border px-6 py-4">
-                <div className="min-w-0">
-                  <h3 className="truncate text-lg font-semibold">
-                    {selectedDoc.filename}
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    {formatBytes(selectedDoc.size_bytes)} •{" "}
-                    {formatDate(selectedDoc.created_at)}
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setSelectedDoc(null)}
-                >
-                  <X className="h-5 w-5" />
-                </Button>
-              </div>
+              {/* Backdrop */}
+              <div
+                className="absolute inset-0 bg-background/60 backdrop-blur-sm"
+                onClick={() => setSelectedDoc(null)}
+              />
 
-              <div className="flex-1 overflow-auto px-6 py-4">
-                <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <FileText className="h-4 w-4" />
-                  Extracted Text
-                </h4>
-                {selectedDoc.extracted_text ? (
-                  <pre className="whitespace-pre-wrap rounded-lg border border-border bg-muted/30 p-4 text-sm leading-relaxed">
-                    {selectedDoc.extracted_text}
-                  </pre>
-                ) : (
-                  <p className="text-sm italic text-muted-foreground">
-                    No text could be extracted from this document.
-                  </p>
-                )}
-              </div>
+              {/* Panel */}
+              <motion.div
+                className="relative ml-auto flex h-full w-full max-w-2xl flex-col border-l border-border bg-background shadow-2xl"
+                initial={{ x: "100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "100%" }}
+                transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              >
+                <div className="flex items-center justify-between border-b border-border px-6 py-4">
+                  <div className="min-w-0">
+                    <h3 className="truncate text-lg font-semibold">
+                      {selectedDoc.filename}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      {formatBytes(selectedDoc.size_bytes)} •{" "}
+                      {formatDate(selectedDoc.created_at)}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setSelectedDoc(null)}
+                  >
+                    <X className="h-5 w-5" />
+                  </Button>
+                </div>
+
+                <div className="flex-1 overflow-auto px-6 py-4">
+                  <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <FileText className="h-4 w-4" />
+                    Extracted Text
+                  </h4>
+                  {selectedDoc.extracted_text ? (
+                    <pre className="whitespace-pre-wrap rounded-lg border border-border bg-muted/30 p-4 text-sm leading-relaxed">
+                      {selectedDoc.extracted_text}
+                    </pre>
+                  ) : (
+                    <p className="text-sm italic text-muted-foreground">
+                      No text could be extracted from this document.
+                    </p>
+                  )}
+                </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
+          )}
+        </AnimatePresence>
+
+        {/* ── Compliance Result Panel ── */}
+        <AnimatePresence>
+          {complianceResult && (
+            <CompliancePanel
+              result={complianceResult}
+              onClose={() => setComplianceResult(null)}
+            />
+          )}
+        </AnimatePresence>
       </main>
 
       {/* Delete Confirmation Dialog */}

@@ -15,7 +15,7 @@ permissions := {
     },
     "associate": {
         "documents":  ["upload", "list_own", "read_own", "read_any", "delete_own"],
-        "workflows":  ["create", "view_own", "execute"],
+        "workflows":  ["create", "view_own", "view_all", "execute"],
         "audit_logs": ["view_own"],
         "users":      ["view_self"],
     },
@@ -23,15 +23,16 @@ permissions := {
         "documents":  ["upload", "list_own", "list_all", "read_own", "read_any", "delete_own", "delete_any"],
         "workflows":  ["create", "view_own", "view_all", "execute", "approve", "delete"],
         "audit_logs": ["view_own", "view_all", "export"],
-        "users":      ["view_self", "list_all"],
+        "users":      ["view_self", "list", "view"],
         "prompts":    ["view"],
     },
     "it_admin": {
-        "documents":  ["list_all", "read_any"],
-        "workflows":  ["view_all", "execute"],
-        "audit_logs": ["view_own", "view_all", "export"],
-        "users":      ["view_self", "list_all", "create", "update_role", "deactivate"],
-        "prompts":    ["create", "view", "update"],
+        "documents":       ["upload", "list_all", "read_any", "delete_any"],
+        "workflows":       ["create", "view_all", "execute"],
+        "audit_logs":      ["view_all", "export"],
+        "users":           ["list", "view", "create", "edit", "deactivate", "reset_password"],
+        "prompts":         ["create", "view", "update"],
+        "system_config":   ["manage"],
     },
 }
 

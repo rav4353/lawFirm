@@ -1,8 +1,9 @@
 import api from './api';
 
 export const authService = {
-  async register(email, password, role = 'paralegal') {
-    const response = await api.post('/auth/register', { email, password, role });
+  async register(email, password) {
+    // Role is NOT sent — backend always assigns "paralegal"
+    const response = await api.post('/auth/register', { email, password });
     return response.data;
   },
 

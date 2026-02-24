@@ -3,13 +3,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routes import auth, documents, workflows, prompts, analyze, executions, audit_logs
+from api.routes import auth, documents, workflows, prompts, analyze, executions, audit_logs, compliance, users, rbac
 from models.database import Base, engine
 from models.workflow import Workflow  # noqa: F401
 from models.prompt import PromptVersion  # noqa: F401 
 from models.analysis import AnalysisResult  # noqa: F401 - DB init
 from models.execution import WorkflowExecution, ExecutionStep  # noqa: F401 - DB init
 from models.audit import AuditLog  # noqa: F401 - DB init
+from models.rbac import Role, Permission, RolePermission  # noqa: F401 - DB init
 
 
 @asynccontextmanager
@@ -38,6 +39,9 @@ app.include_router(prompts.router)
 app.include_router(analyze.router)
 app.include_router(executions.router)
 app.include_router(audit_logs.router)
+app.include_router(compliance.router)
+app.include_router(users.router)
+app.include_router(rbac.router)
 
 
 @app.get("/health")

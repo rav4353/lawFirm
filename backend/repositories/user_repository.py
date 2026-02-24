@@ -14,14 +14,62 @@ def get_user_by_id(db: Session, user_id: str) -> User | None:
     return db.query(User).filter(User.id == user_id).first()
 
 
+def get_all_users(db: Session) -> list[User]:
+    """Return all users, newest first."""
+    return db.query(User).order_by(User.created_at.desc()).all()
+
+
 def create_user(db: Session, user_data: UserCreate, hashed_password: str) -> User:
-    """Create a new user record."""
+    """Create a new user record. First user becomes it_admin, others paralegal."""
+    user_count = db.query(User).count()
+    role = "it_admin" if user_count == 0 else "paralegal"
+    
     db_user = User(
+        name=user_data.name,
         email=user_data.email,
         hashed_password=hashed_password,
-        role=user_data.role.value,
+        role=role,
     )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
     return db_user
+
+
+def create_user_admin(
+    db: Session,
+    *,
+    name: str,
+    email: str,
+    hashed_password: str,
+    role: str,
+) -> User:
+    """Admin-only user creation with explicit role assignment."""
+    db_user = User(
+        name=name,
+        email=email,
+        hashed_password=hashed_password,
+        role=role,
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+
+def update_user(db: Session, user: User, **kwargs) -> User:
+    """Update user fields. Only set provided kwargs."""
+    for key, value in kwargs.items():
+        if value is not None:
+            setattr(user, key, value)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def deactivate_user(db: Session, user: User) -> User:
+    """Deactivate a user account."""
+    user.is_active = False
+    db.commit()
+    db.refresh(user)
+    return user
