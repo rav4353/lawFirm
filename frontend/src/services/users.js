@@ -20,4 +20,9 @@ export const usersService = {
     const response = await api.patch(`/users/${userId}/deactivate`);
     return response.data;
   },
+
+  async activate(userId) {
+    const response = await api.patch(`/users/${userId}/activate`);
+    return response.data;
+  },
 };

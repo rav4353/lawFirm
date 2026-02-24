@@ -12,6 +12,7 @@ import AuditLogsPage from './pages/AuditLogsPage';
 import UserManagementPage from './pages/UserManagementPage';
 import RBACPoliciesPage from './pages/RBACPoliciesPage';
 import LandingPage from './pages/LandingPage';
+import LegalResearchPage from './pages/LegalResearchPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import { ThemeProvider } from './context/ThemeProvider';
 import { Toaster } from 'sonner';
@@ -43,6 +44,11 @@ function AppRoutes() {
       <Route path="/workflows/builder" element={
         <ProtectedRoute>
           <WorkflowBuilderPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/research" element={
+        <ProtectedRoute>
+          <LegalResearchPage />
         </ProtectedRoute>
       } />
       <Route path="/audit-logs" element={

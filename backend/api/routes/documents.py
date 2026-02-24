@@ -17,7 +17,17 @@ async def upload_document(
     db: Session = Depends(get_db),
 ):
     """Upload a PDF document. Extracts text automatically."""
-    return await document_service.upload_document(db, file, current_user.id)
+    doc = await document_service.upload_document(db, file, current_user.id)
+    
+    audit_service.log_action(
+        db,
+        user=current_user,
+        resource="documents",
+        action="upload",
+        resource_id=doc.id,
+        metadata={"filename": file.filename}
+    )
+    return doc
 
 
 @router.get("", response_model=DocumentListResponse)

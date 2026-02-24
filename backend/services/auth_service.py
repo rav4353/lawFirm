@@ -72,12 +72,47 @@ def send_registration_otp(db: Session, email: str):
 
 def authenticate_user(db: Session, email: str, password: str) -> Token:
     """Authenticate user and return a JWT. Raises 401 on failure."""
+    from services import audit_service
+
     user = user_repository.get_user_by_email(db, email)
+    
+    # 1. Validate credentials
     if not user or not verify_password(password, user.hashed_password):
+        audit_service.log_action(
+            db,
+            user_id="anonymous",
+            resource="auth",
+            action="login_failure",
+            metadata={"email": email, "reason": "invalid_credentials"}
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
+        
+    # 2. Check account status
+    if not user.is_active:
+        audit_service.log_action(
+            db,
+            user=user,
+            resource="auth",
+            action="login_blocked_inactive",
+            metadata={"email": email, "reason": "account_inactive"}
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is inactive. Please contact your administrator.",
+        )
+    
+    # 3. Successful login
+    audit_service.log_action(
+        db,
+        user=user,
+        resource="auth",
+        action="login_success",
+        metadata={"email": email}
+    )
+
     token = create_access_token({"sub": user.id, "role": user.role})
     return Token(access_token=token)
 

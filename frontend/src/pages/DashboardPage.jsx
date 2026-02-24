@@ -52,7 +52,7 @@ const roleConfig = {
     bg: "bg-blue-500/10",
     border: "border-blue-500/20",
     quickActions: [
-      { icon: Search, label: "Legal Research", desc: "AI-powered case law search" },
+      { icon: Search, label: "Legal Research", desc: "AI-powered case law search", link: "/research" },
       { icon: FileText, label: "Draft Documents", desc: "Generate templates via AI", link: "/documents" },
       { icon: Workflow, label: "Workflows", desc: "View compliance execution", link: "/workflows" },
     ],

@@ -21,8 +21,9 @@ def get_all_users(db: Session) -> list[User]:
 
 def create_user(db: Session, user_data: UserCreate, hashed_password: str) -> User:
     """Create a new user record. First user becomes it_admin, others paralegal."""
-    user_count = db.query(User).count()
-    role = "it_admin" if user_count == 0 else "paralegal"
+    # Check if ANY it_admin exists in the system
+    admin_exists = db.query(User).filter(User.role == "it_admin").first() is not None
+    role = "it_admin" if not admin_exists else "paralegal"
     
     db_user = User(
         name=user_data.name,
@@ -70,6 +71,14 @@ def update_user(db: Session, user: User, **kwargs) -> User:
 def deactivate_user(db: Session, user: User) -> User:
     """Deactivate a user account."""
     user.is_active = False
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def activate_user(db: Session, user: User) -> User:
+    """Activate a user account."""
+    user.is_active = True
     db.commit()
     db.refresh(user)
     return user

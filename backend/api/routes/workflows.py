@@ -23,7 +23,17 @@ async def create_workflow(
     db: Session = Depends(get_db),
 ):
     """Create a new compliance workflow. Requires 'workflows/create' permission."""
-    return workflow_service.create_workflow(db, data, current_user.id)
+    workflow = workflow_service.create_workflow(db, data, current_user.id)
+    
+    audit_service.log_action(
+        db,
+        user=current_user,
+        resource="workflows",
+        action="create",
+        resource_id=workflow.id,
+        metadata={"name": workflow.name}
+    )
+    return workflow
 
 
 @router.get("", response_model=WorkflowListResponse)
@@ -86,7 +96,17 @@ async def update_workflow(
     db: Session = Depends(get_db),
 ):
     """Update an existing workflow. Only the creator can update."""
-    return workflow_service.update_workflow(db, workflow_id, data, current_user.id)
+    workflow = workflow_service.update_workflow(db, workflow_id, data, current_user.id)
+    
+    audit_service.log_action(
+        db,
+        user=current_user,
+        resource="workflows",
+        action="edit",
+        resource_id=workflow_id,
+        metadata={"name_changed": data.name is not None}
+    )
+    return workflow
 
 
 @router.delete("/{workflow_id}", status_code=204)
@@ -97,6 +117,14 @@ async def delete_workflow(
 ):
     """Delete a workflow. Requires 'workflows/delete' permission."""
     workflow_service.delete_workflow(db, workflow_id, current_user.id)
+    
+    audit_service.log_action(
+        db,
+        user=current_user,
+        resource="workflows",
+        action="delete",
+        resource_id=workflow_id
+    )
 
 
 @router.post("/{workflow_id}/execute", response_model=ExecutionResponse, status_code=201)
@@ -108,6 +136,15 @@ async def execute_workflow(
 ):
     """Execute a workflow by uploading a PDF through the workflow engine."""
     result = await execution_service.execute_workflow(db, workflow_id, file, current_user.id)
+    
+    audit_service.log_action(
+        db,
+        user=current_user,
+        resource="workflows",
+        action="execute",
+        resource_id=workflow_id,
+        metadata={"filename": file.filename}
+    )
     execution = result["execution"]
     steps = result["steps"]
     return {

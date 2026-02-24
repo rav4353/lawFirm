@@ -26,7 +26,17 @@ async def list_users(
     db: Session = Depends(get_db),
 ):
     """List all users. IT Admin and Partner only."""
-    return user_management_service.list_users(db)
+    users = user_management_service.list_users(db)
+    
+    audit_service.log_action(
+        db,
+        user=current_user,
+        resource="users",
+        action="list",
+        opa_input={"role": current_user.role, "resource": "users", "action": "list"},
+        opa_decision={"allow": True},
+    )
+    return users
 
 
 @router.post("", response_model=UserResponse, status_code=201)
@@ -99,5 +109,27 @@ async def deactivate_user(
         resource_id=user_id,
         opa_input={"role": current_user.role, "resource": "users", "action": "deactivate"},
         opa_decision={"allow": True},
+    )
+    return user
+
+
+@router.patch("/{user_id}/activate", response_model=UserResponse)
+async def activate_user(
+    user_id: str,
+    current_user: User = Depends(require_permission("users", "edit")),
+    db: Session = Depends(get_db),
+):
+    """Reactivate a user account. IT Admin only."""
+    user = user_management_service.admin_activate_user(db, user_id, current_user.id)
+
+    audit_service.log_action(
+        db,
+        user=current_user,
+        resource="users",
+        action="edit",
+        resource_id=user_id,
+        opa_input={"role": current_user.role, "resource": "users", "action": "edit"},
+        opa_decision={"allow": True},
+        metadata={"action": "activated_user"},
     )
     return user

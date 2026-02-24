@@ -1,0 +1,11 @@
+id,company,country,authority,fine_amount,reason,date
+case-google-1,Google,France,CNIL,€50000000,Lack of transparency and valid consent,2019-01-21
+case-meta-1,Meta,Ireland,DPC,€1200000000,Illegal data transfer to US without adequate safeguards,2023-05-22
+case-amazon-1,Amazon,Luxembourg,CNPD,€746000000,Non-compliance with GDPR principles related to targeted advertising,2021-07-16
+case-tiktok-1,TikTok,Ireland,DPC,€345000000,Violations related to children's data and dark patterns,2023-09-01
+case-sephora-1,Sephora,USA - California,OAG,$1200000,CCPA violation for selling customer data without opt-out notice,2022-08-24
+case-british-airways-1,British Airways,United Kingdom,ICO,£20000000,Data breach notification failure and poor security affecting 400k customers,2020-10-16
+case-marriott-1,Marriott International,United Kingdom,ICO,£18400000,Data breach affecting 339M guest records from acquired Starwood database,2020-10-30
+case-hm-1,H&M,Germany,BfDI,€35258707,Illegal surveillance of employees in Nuremberg service center,2020-10-01
+case-tim-1,TIM (Telecom Italia),Italy,Garante,€27800000,Aggressive telemarketing practices without valid consent,2020-01-15
+case-clearview-1,Clearview AI,France,CNIL,€20000000,Unlawful processing of facial recognition data without consent,2022-10-20

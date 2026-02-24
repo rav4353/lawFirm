@@ -106,3 +106,23 @@ def admin_deactivate_user(db: Session, user_id: str, deactivated_by: str):
 
     logger.info("Admin %s deactivated user %s (%s)", deactivated_by, user_id, user.email)
     return user
+
+
+def admin_activate_user(db: Session, user_id: str, activated_by: str):
+    """Activate a user account."""
+    user = user_repository.get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found.",
+        )
+    if user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User is already active.",
+        )
+
+    user = user_repository.activate_user(db, user)
+
+    logger.info("Admin %s activated user %s (%s)", activated_by, user_id, user.email)
+    return user

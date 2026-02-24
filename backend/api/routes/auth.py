@@ -6,7 +6,7 @@ from api.dependencies.auth import get_current_user
 from models.database import get_db
 from models.user import User
 from schemas.auth import UserCreate, UserResponse, Token, ForgotPasswordRequest, ResetPassword
-from services import auth_service, opa_service
+from services import auth_service, opa_service, audit_service
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -15,6 +15,15 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 def register(user_data: UserCreate, otp_code: str, db: Session = Depends(get_db)):
     """Register a new user account with OTP verification."""
     user = auth_service.register_user(db, user_data, otp_code)
+    
+    audit_service.log_action(
+        db,
+        user=user,
+        resource="auth",
+        action="register",
+        resource_id=user.id,
+        metadata={"email": user.email, "role": user.role}
+    )
     return user
 
 
@@ -54,6 +63,15 @@ async def get_permissions(current_user: User = Depends(get_current_user)):
 def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
     """Request a password reset OTP."""
     auth_service.forgot_password(db, data.email)
+    
+    # We log this as a generic auth attempt for security
+    audit_service.log_action(
+        db,
+        user=None,  # We don't have a login session here, but let's see if we can log a system-level event
+        resource="auth",
+        action="forgot_password",
+        metadata={"email": data.email}
+    )
     return {"message": "If the email is registered, you will receive an OTP code."}
 
 
@@ -61,4 +79,16 @@ def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
 def reset_password(data: ResetPassword, db: Session = Depends(get_db)):
     """Reset password using OTP."""
     auth_service.reset_password(db, data)
+    
+    # For reset, we can find the user to log who it was
+    user = auth_service.user_repository.get_user_by_email(db, data.email)
+    if user:
+        audit_service.log_action(
+            db,
+            user=user,
+            resource="auth",
+            action="reset_password",
+            resource_id=user.id,
+            metadata={"email": user.email}
+        )
     return {"message": "Password reset successfully."}

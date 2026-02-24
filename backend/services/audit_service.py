@@ -11,19 +11,24 @@ from repositories import audit_repository
 def log_action(
     db: Session,
     *,
-    user: User,
+    user: User | None = None,
     resource: str,
     action: str,
     resource_id: str | None = None,
     opa_input: dict[str, Any] | None = None,
     opa_decision: dict[str, Any] | None = None,
     metadata: dict[str, Any] | None = None,
+    user_id: str | None = None,
+    role: str | None = None,
 ):
     # Append-only: never update logs.
+    final_user_id = user_id or (user.id if user else "anonymous")
+    final_role = role or (user.role if user else "none")
+
     return audit_repository.create_audit_log(
         db,
-        user_id=user.id,
-        role=user.role,
+        user_id=final_user_id,
+        role=final_role,
         resource=resource,
         action=action,
         resource_id=resource_id,

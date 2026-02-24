@@ -345,6 +345,7 @@ export default function UserManagementPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [editUser, setEditUser] = useState(null);
   const [deactivateTarget, setDeactivateTarget] = useState(null);
+  const [activateTarget, setActivateTarget] = useState(null);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -378,6 +379,19 @@ export default function UserManagementPage() {
       toast.error(err.response?.data?.detail || "Failed to deactivate user.");
     } finally {
       setDeactivateTarget(null);
+    }
+  };
+
+  const confirmActivate = async () => {
+    if (!activateTarget) return;
+    try {
+      await usersService.activate(activateTarget);
+      toast.success("User activated");
+      fetchUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to activate user.");
+    } finally {
+      setActivateTarget(null);
     }
   };
 
@@ -610,19 +624,31 @@ export default function UserManagementPage() {
                                 <KeyRound className="mr-2 h-4 w-4" />
                                 Reset Password
                               </DropdownMenuItem>
-                              {!isSelf && u.is_active && (
-                                <>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    className="text-destructive focus:text-destructive"
-                                    onClick={() => setDeactivateTarget(u.id)}
-                                  >
-                                    <UserX className="mr-2 h-4 w-4" />
-                                    Deactivate
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                            </DropdownMenuContent>
+                                {!isSelf && u.is_active && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      className="text-destructive focus:text-destructive"
+                                      onClick={() => setDeactivateTarget(u.id)}
+                                    >
+                                      <UserX className="mr-2 h-4 w-4" />
+                                      Deactivate
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                                {!isSelf && !u.is_active && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      className="text-emerald-500 focus:text-emerald-500"
+                                      onClick={() => setActivateTarget(u.id)}
+                                    >
+                                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                                      Activate
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
                           </DropdownMenu>
                         </td>
                       </motion.tr>
@@ -659,6 +685,23 @@ export default function UserManagementPage() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeactivate} className="bg-destructive text-white hover:bg-destructive/90">
               Deactivate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!activateTarget} onOpenChange={(open) => !open && setActivateTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Activate User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to reactivate this user? They will regain access to their account and the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmActivate} className="bg-emerald-500 text-white hover:bg-emerald-600">
+              Activate
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
