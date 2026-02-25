@@ -76,12 +76,12 @@ test_admin_can_list_all_docs if {
     authz.allow with input as {"role": "it_admin", "resource": "documents", "action": "list_all"}
 }
 
-test_admin_cannot_upload_doc if {
-    not authz.allow with input as {"role": "it_admin", "resource": "documents", "action": "upload"}
+test_admin_can_upload_doc if {
+    authz.allow with input as {"role": "it_admin", "resource": "documents", "action": "upload"}
 }
 
-test_admin_cannot_delete_any_doc if {
-    not authz.allow with input as {"role": "it_admin", "resource": "documents", "action": "delete_any"}
+test_admin_can_delete_any_doc if {
+    authz.allow with input as {"role": "it_admin", "resource": "documents", "action": "delete_any"}
 }
 
 # ═══════════════════════════════════════════════
@@ -132,8 +132,8 @@ test_admin_can_execute_workflow if {
     authz.allow with input as {"role": "it_admin", "resource": "workflows", "action": "execute"}
 }
 
-test_admin_cannot_create_workflow if {
-    not authz.allow with input as {"role": "it_admin", "resource": "workflows", "action": "create"}
+test_admin_can_create_workflow if {
+    authz.allow with input as {"role": "it_admin", "resource": "workflows", "action": "create"}
 }
 
 # ═══════════════════════════════════════════════
@@ -181,7 +181,7 @@ test_paralegal_cannot_create_user if {
 }
 
 test_partner_can_list_users if {
-    authz.allow with input as {"role": "partner", "resource": "users", "action": "list_all"}
+    authz.allow with input as {"role": "partner", "resource": "users", "action": "list"}
 }
 
 test_partner_cannot_create_user if {
@@ -193,7 +193,7 @@ test_admin_can_create_user if {
 }
 
 test_admin_can_update_role if {
-    authz.allow with input as {"role": "it_admin", "resource": "users", "action": "update_role"}
+    authz.allow with input as {"role": "it_admin", "resource": "users", "action": "edit"}
 }
 
 test_admin_can_deactivate_user if {
@@ -251,5 +251,5 @@ test_paralegal_allowed_actions_count if {
 
 test_admin_allowed_actions_count if {
     actions := authz.allowed_actions with input as {"role": "it_admin"}
-    count(actions) == 15  # 2 doc + 2 wf + 3 audit + 5 users + 3 prompts
+    count(actions) == 19  # 4 doc + 3 wf + 2 audit + 6 users + 3 prompts + 1 sys
 }

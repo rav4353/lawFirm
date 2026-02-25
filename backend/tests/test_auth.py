@@ -66,27 +66,27 @@ def test_register_first_user_is_it_admin():
     db.add(OTP(email=TEST_USER["email"], otp_code="123456", purpose="account_verification", expires_at=expires_at))
     db.commit()
     db.close()
-    
     resp = client.post(REGISTER_URL, json=TEST_USER, params={"otp_code": "123456"})
     # Mocking OTP verification or just assuming it works for tests if it's bypassable?
     # Actually, repository needs OTP. I'll need to mock otp_repository or add a test entry.
     # For now, let's update assertions to expect 'it_admin' for first user.
-    
+
     assert resp.status_code == 201
     data = resp.json()
     assert data["role"] == "it_admin"
     assert data["email"] == TEST_USER["email"]
     assert data["name"] == TEST_USER["name"]
 
+
 def test_register_subsequent_user_is_paralegal():
     db = TestingSessionLocal()
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
     db.add(OTP(email=TEST_USER["email"], otp_code="123456", purpose="account_verification", expires_at=expires_at))
     db.commit()
-    
+
     # Register first user
     client.post(REGISTER_URL, json=TEST_USER, params={"otp_code": "123456"})
-    
+
     # Register second user
     second_user = TEST_USER.copy()
     second_user["email"] = "second@veritas.ai"
@@ -94,7 +94,7 @@ def test_register_subsequent_user_is_paralegal():
     db.commit()
     db.close()
     resp = client.post(REGISTER_URL, json=second_user, params={"otp_code": "123456"})
-    
+
     assert resp.status_code == 201
     data = resp.json()
     assert data["role"] == "paralegal"
@@ -107,14 +107,14 @@ def test_register_duplicate_email():
     db.commit()
     db.close()
     client.post(REGISTER_URL, json=TEST_USER, params={"otp_code": "123456"})
-    
+
     # Add another OTP for the second attempt, but it should fail because email is taken
     db = TestingSessionLocal()
     db.query(OTP).filter(OTP.email == TEST_USER["email"]).delete()
     db.add(OTP(email=TEST_USER["email"], otp_code="654321", purpose="account_verification", expires_at=expires_at))
     db.commit()
     db.close()
-    
+
     resp = client.post(REGISTER_URL, json=TEST_USER, params={"otp_code": "654321"})
     assert resp.status_code == 400
     assert "already registered" in resp.json()["detail"].lower()

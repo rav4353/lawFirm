@@ -53,6 +53,7 @@ UPLOAD_URL = "/documents/upload"
 LIST_URL = "/documents"
 
 TEST_USER = {
+    "name": "Doc User",
     "email": "docuser@veritas.ai",
     "password": "securepassword123",
     "role": "associate",
@@ -61,7 +62,14 @@ TEST_USER = {
 
 def _get_token():
     """Helper: register a user and return the access token."""
-    client.post(REGISTER_URL, json=TEST_USER)
+    from models.otp import OTP
+    from datetime import datetime, timedelta, timezone
+    db = TestingSessionLocal()
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+    db.add(OTP(email=TEST_USER["email"], otp_code="123456", purpose="account_verification", expires_at=expires_at))
+    db.commit()
+    db.close()
+    client.post(REGISTER_URL, json=TEST_USER, params={"otp_code": "123456"})
     resp = client.post(LOGIN_URL, data={"username": TEST_USER["email"], "password": TEST_USER["password"]})
     return resp.json()["access_token"]
 
