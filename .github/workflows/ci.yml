@@ -81,10 +81,11 @@ jobs:
           --health-timeout 5s
           --health-retries 5
       minio:
-        image: minio/minio
+        image: bitnami/minio:latest
         env:
           MINIO_ROOT_USER: minioadmin
           MINIO_ROOT_PASSWORD: minioadmin
+          MINIO_DEFAULT_BUCKETS: lawfirm-documents
         ports:
           - 9000:9000
         options: >-
