@@ -38,10 +38,11 @@ async def _generate_research_summary(query: str, cases: List[Any]) -> str:
     for c in cases[:3]: # Summarize top 3
         serialized_cases += f"Case: {c.title}\nRuling: {c.key_ruling}\nSummary: {c.summary}\n\n"
 
+    cases_header = "Here are the most relevant cases found in our local database:\n"
     prompt = f"""You are a professional legal research assistant.
 The user searched for: "{query}"
 
-{f"Here are the most relevant cases found in our local database:\n" + serialized_cases if serialized_cases else "No specific cases matching this query were found in our internal database."}
+{cases_header + serialized_cases if serialized_cases else "No specific cases matching this query were found in our internal database."}
 
 Please provide a concise (2-3 paragraph) synthesis. 
 If cases were provided above, explain how they relate to the search query.

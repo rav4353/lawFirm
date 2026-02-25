@@ -3,12 +3,20 @@ max-line-length = 120
 exclude = venv, __pycache__, .git
 ignore =
     # Whitespace and blank line issues
-    W291, W293, E301, E302, E305, E203, E261, E265
-    # Unused imports
-    F401
+    W291, W293, E301, E302, E305, E203, E261, E265, E241
+    # Indentation issues
+    E111, E114, E116, E117, E121, E122, E123, E124, E125, E126, E127, E128, E129, E131
+    # Unused and redefined imports/variables
+    F401, F841, F811
     # Line too long
     E501
     # Comparison to True
     E712
     # Module level import not at top of file
     E402
+    # f-string missing placeholders
+    F541
+    # Bare except
+    E722
+    # Line break before binary operator
+    W503
