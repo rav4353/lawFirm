@@ -72,7 +72,7 @@ spec:
             - "--server"
             - "--log-level=info"
             - "--addr=0.0.0.0:8181"
-            - "/policies"
+            - "/policies/authz.rego"
           ports:
             - containerPort: 8181
           volumeMounts:
