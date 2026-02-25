@@ -41,7 +41,7 @@ class StatCard(BaseModel):
     glow: str
 
 class ActivityLogItem(BaseModel):
-    id: int
+    id: str
     type: str
     title: str
     status: str
