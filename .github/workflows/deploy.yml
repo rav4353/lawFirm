@@ -2,7 +2,7 @@ name: Deploy — Build & Push Images
 
 on:
   push:
-    branches: [main]
+    branches: [main, user2]
   workflow_dispatch:
     inputs:
       environment:

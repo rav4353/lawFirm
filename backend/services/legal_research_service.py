@@ -22,10 +22,7 @@ async def perform_legal_research(db: Session, user_id: str, req: SearchQueryRequ
     # 2. Search cases
     cases = legal_research_repository.search_cases(db, req)
     
-    if not cases:
-        return SearchResultResponse(cases=[], ai_summary="No relevant cases found for your query.", total=0)
-    
-    # 3. Generate AI Summary
+    # 3. Generate AI Summary (Always generate, even if 0 cases found locally)
     ai_summary = await _generate_research_summary(req.query, cases)
     
     case_responses = [CaseResponse.model_validate(c) for c in cases]
@@ -44,12 +41,12 @@ async def _generate_research_summary(query: str, cases: List[Any]) -> str:
     prompt = f"""You are a professional legal research assistant.
 The user searched for: "{query}"
 
-Here are the most relevant cases found in our database:
-{serialized_cases}
+{f"Here are the most relevant cases found in our local database:\n{serialized_cases}" if serialized_cases else "No specific cases matching this query were found in our internal database."}
 
-Please provide a concise (2-3 paragraph) synthesis of these cases. 
-Explain how they relate to the search query and what the overall legal trend appears to be.
-Do not invent facts; only use the provided case information.
+Please provide a concise (2-3 paragraph) synthesis. 
+If cases were provided above, explain how they relate to the search query.
+If no cases were provided, provide a general legal overview of the topic based on your knowledge, but clearly state that no specific local precedents were matched.
+Do not invent specific case names if not provided; only use provided info for specific citations or speak in general legal terms.
 """
 
     payload = {

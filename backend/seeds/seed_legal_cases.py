@@ -61,6 +61,16 @@ def seed_legal_cases():
                 "summary": "Invalidated the EU-US Privacy Shield due to concerns about US surveillance programs and insufficient protection for EU data subjects.",
                 "full_text": "The court found that US law (Section 702 FISA and EO 12333) does not provide data protection equivalent to GDPR. Standard Contractual Clauses (SCCs) remain valid but require additional safeguards if the destination country lacks adequate protections.",
                 "key_ruling": "EU-US Privacy Shield invalidated; SCCs require 'supplementary measures'."
+            },
+            {
+                "title": "Google Spain SL, Google Inc. v Agencia Española de Protección de Datos",
+                "court": "European Court of Justice (ECJ)",
+                "jurisdiction": "European Union",
+                "year": 2014,
+                "regulation": "GDPR",
+                "summary": "This seminal case established the 'Right to be Forgotten'. Individual data subjects have the right to request search engines to delist links to personal information that is inadequate, irrelevant, or no longer relevant.",
+                "full_text": "In Case C-131/12, the ECJ ruled that search engine operators are responsible for the processing of personal data which appears on web pages published by third parties. The ruling granted individuals the right to request that search engines remove links to personal info under certain conditions, even if the publication on the original site is lawful.",
+                "key_ruling": "Established the 'Right to be Forgotten' in the EU legal framework."
             }
         ]
 
