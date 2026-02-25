@@ -1,0 +1,10 @@
+[flake8]
+max-line-length = 120
+exclude = venv, __pycache__, .git
+ignore =
+    # Whitespace and blank line issues
+    W291, W293, E302, E305, E203, E261, E265
+    # Unused imports
+    F401
+    # Line too long
+    E501
