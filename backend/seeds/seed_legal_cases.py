@@ -1,3 +1,8 @@
+import sys
+import os
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
 from models.database import engine, SessionLocal, Base
 from models.legal_research import LegalCase, ResearchQuery, SavedCase
 from models.user import User

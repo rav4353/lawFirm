@@ -6,13 +6,24 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "veritas-dev-secret-key-change-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    DATABASE_URL: str = "sqlite:///./veritas.db"
+    
+    # DATABASE_URL: str = "sqlite:///./veritas.db"
+    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/veritas"
+    
     OPA_URL: str = "http://localhost:8181"
+    OLLAMA_URL: str = "http://localhost:11434"
     
     # SendGrid Settings
-    SENDGRID_API_KEY: str = ""
+    SENDGRID_API_KEY: str = "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"
     SENDGRID_FROM_EMAIL: str = "ravanthsri20@gmail.com"
     SENDGRID_FROM_NAME: str = "Veritas AI"
+
+    # MinIO / S3 Settings
+    MINIO_ENDPOINT: str = "localhost:9000"
+    MINIO_ACCESS_KEY: str = "minioadmin"
+    MINIO_SECRET_KEY: str = "minioadmin"
+    MINIO_SECURE: bool = False
+    MINIO_BUCKET: str = "lawfirm-documents"
 
     model_config = ConfigDict(env_file=".env")
 

@@ -106,6 +106,10 @@ async def analyze_document(
         workflow_id=workflow_id,
     )
 
+    # Track processing metric
+    from services.metrics_service import DOCUMENTS_PROCESSED
+    DOCUMENTS_PROCESSED.inc()
+
     # 6. Return response
     return ComplianceAnalysisResponse(
         id=result.id,

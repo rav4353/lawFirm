@@ -13,3 +13,4 @@ httpx
 prometheus-client
 pytest
 pytest-asyncio
+boto3

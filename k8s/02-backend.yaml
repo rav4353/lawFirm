@@ -28,6 +28,13 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
+          resources:
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
           envFrom:
             - configMapRef:
                 name: backend-config
@@ -49,6 +56,10 @@ kind: Service
 metadata:
   name: backend
   namespace: veritas
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: "/metrics"
+    prometheus.io/port: "8000"
 spec:
   selector:
     app: backend

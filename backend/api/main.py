@@ -6,19 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.routes import auth, documents, workflows, prompts, analyze, executions, audit_logs, compliance, users, rbac, legal_research
 from api import analytics, case_analytics
 from models.database import Base, engine
-from models.workflow import Workflow  # noqa: F401
-from models.prompt import PromptVersion  # noqa: F401 
-from models.analysis import AnalysisResult  # noqa: F401 - DB init
-from models.execution import WorkflowExecution, ExecutionStep  # noqa: F401 - DB init
-from models.audit import AuditLog  # noqa: F401 - DB init
-from models.rbac import Role, Permission, RolePermission  # noqa: F401 - DB init
-from models.legal_research import LegalCase, ResearchQuery, SavedCase  # noqa: F401 - DB init
-from models.client import Client  # noqa: F401 - DB init
-from models.billing import Billing  # noqa: F401 - DB init
-from models.lawfirm_case import LawfirmCase  # noqa: F401 - DB init
-from models.lawfirm_task import LawfirmTask  # noqa: F401 - DB init
-from models.timesheet import Timesheet  # noqa: F401 - DB init
-
+from services.metrics_service import PrometheusMiddleware, get_metrics_response
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -26,8 +14,10 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     yield
 
-
 app = FastAPI(title="Veritas AI API", lifespan=lifespan)
+
+# Register Prometheus Middleware
+app.add_middleware(PrometheusMiddleware)
 
 # Configure CORS
 app.add_middleware(
@@ -53,6 +43,10 @@ app.include_router(legal_research.router)
 app.include_router(analytics.router)
 app.include_router(case_analytics.router)
 
+
+@app.get("/metrics")
+async def metrics():
+    return get_metrics_response()
 
 @app.get("/health")
 async def health_check():

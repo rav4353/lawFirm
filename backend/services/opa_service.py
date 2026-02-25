@@ -112,30 +112,37 @@ def _get_db_allowed_actions(role_name: str) -> list[dict[str, str]] | None:
 
 async def check_permission(role: str, resource: str, action: str) -> bool:
     """Query OPA, then DB, then fallback matrix."""
-    # 1. Try OPA (Production approach)
+    from services.metrics_service import OPA_DECISION_LATENCY
+    import time
+
+    start_time = time.time()
     try:
-        async with httpx.AsyncClient(timeout=2.0) as client:
-            resp = await client.post(
-                f"{OPA_URL}{_POLICY_PATH}/allow",
-                json={"input": {"role": role, "resource": resource, "action": action}},
-            )
-            if resp.status_code == 200:
-                result = resp.json().get("result")
-                if result is not None:
-                    return bool(result)
-    except Exception:
-        pass
+        # 1. Try OPA (Production approach)
+        try:
+            async with httpx.AsyncClient(timeout=2.0) as client:
+                resp = await client.post(
+                    f"{OPA_URL}{_POLICY_PATH}/allow",
+                    json={"input": {"role": role, "resource": resource, "action": action}},
+                )
+                if resp.status_code == 200:
+                    result = resp.json().get("result")
+                    if result is not None:
+                        return bool(result)
+        except Exception:
+            pass
 
-    # 2. Try Database (Dynamic RBAC)
-    db_allowed = _check_db_permission(role, resource, action)
-    if db_allowed is not None:
-        return db_allowed
+        # 2. Try Database (Dynamic RBAC)
+        db_allowed = _check_db_permission(role, resource, action)
+        if db_allowed is not None:
+            return db_allowed
 
-    # 3. Fallback to static matrix (Safe default)
-    if _is_dev_mode():
-        return _fallback_check(role, resource, action)
-    
-    return False
+        # 3. Fallback to static matrix (Safe default)
+        if _is_dev_mode():
+            return _fallback_check(role, resource, action)
+        
+        return False
+    finally:
+        OPA_DECISION_LATENCY.observe(time.time() - start_time)
 
 
 async def get_allowed_actions(role: str) -> list[dict[str, str]]:

@@ -30,6 +30,40 @@ class DashboardMetricsResponse(BaseModel):
     client_revenues: List[ClientRevenue]
     compliance_distribution: List[ComplianceDistribution]
 
+class StatCard(BaseModel):
+    label: str
+    value: str
+    icon: str
+    trend: str
+    status: str
+    color: str
+    bg: str
+    glow: str
+
+class ActivityLogItem(BaseModel):
+    id: int
+    type: str
+    title: str
+    status: str
+    time: str
+    icon: str
+    color: str
+    bg: str
+    border: str
+
+class SystemStatusItem(BaseModel):
+    name: str
+    status: str
+    percentage: float
+    icon: str
+    color: str
+
+class DashboardSummaryResponse(BaseModel):
+    greeting_reviews: int
+    stat_cards: List[StatCard]
+    recent_activity: List[ActivityLogItem]
+    system_status: List[SystemStatusItem]
+
 class TeamMemberDetails(BaseModel):
     name: str
     role: str

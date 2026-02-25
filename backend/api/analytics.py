@@ -16,8 +16,10 @@ from models.timesheet import Timesheet
 from api.dependencies.auth import get_current_user
 from schemas.analytics import (
     DashboardMetricsResponse, RevenueTrend, TopClient, ClientRevenue, ComplianceDistribution,
-    TeamOverviewResponse, TeamMemberDetails, TeamPerformanceData, WorkloadDistribution, TopPerformers
+    TeamOverviewResponse, TeamMemberDetails, TeamPerformanceData, WorkloadDistribution, TopPerformers,
+    DashboardSummaryResponse, StatCard, ActivityLogItem, SystemStatusItem
 )
+from models.audit import AuditLog
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -127,130 +129,152 @@ def get_dashboard_metrics(
     )
 
 
-@router.get("/team-overview", response_model=TeamOverviewResponse)
-def get_team_overview(
+@router.get("/dashboard-summary", response_model=DashboardSummaryResponse)
+def get_dashboard_summary(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role == "paralegal":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to view team overview."
-        )
-
-    users = db.query(User).filter(User.role != "it_admin").all()
-    total_members = len(users)
-
-    cases = db.query(LawfirmCase).all()
-    active_cases = len([c for c in cases if c.status != "closed"])
+    """Aggregate all critical dashboard data into one request."""
     
-    avg_case_load = round(active_cases / total_members, 1) if total_members > 0 else 0.0
+    # 1. Greeting Reviews (Delayed cases)
+    pending_reviews = db.query(func.count(LawfirmCase.id)).filter(LawfirmCase.status == "delayed").scalar() or 0
 
-    tasks = db.query(LawfirmTask).all()
-    completed_tasks = len([t for t in tasks if t.status == "completed"])
-    completion_rate = round((completed_tasks / len(tasks)) * 100, 1) if len(tasks) > 0 else 0.0
-
-    timesheets = db.query(Timesheet).all()
-    total_hours = sum(t.hours for t in timesheets)
-    avg_billable_hours = round(total_hours / total_members, 1) if total_members > 0 else 0.0
-
-    members_data = []
-    workload_dist = []
-
-    for u in users:
-        u_cases = [c for c in cases if c.assigned_to == u.id]
-        u_active_cases = len([c for c in u_cases if c.status != "closed"])
-        u_closed_cases = len([c for c in u_cases if c.status == "closed"])
-        
-        u_tasks = [t for t in tasks if t.assigned_to == u.id]
-        u_completed_tasks = len([t for t in u_tasks if t.status == "completed"])
-
-        u_timesheets = [ts for ts in timesheets if ts.user_id == u.id]
-        u_billable_hours = sum(ts.hours for ts in u_timesheets)
-        u_revenue = sum(ts.revenue_generated for ts in u_timesheets)
-
-        # Basic utilization logic: assume 6 months of data generated
-        months_worked = 6
-        expected_total_hours = u.expected_hours_per_month * months_worked if u.expected_hours_per_month else 160 * 6
-        u_utilization = round((u_billable_hours / expected_total_hours) * 100, 1) if expected_total_hours > 0 else 0
-
-        status_flag = "Active"
-        if u_active_cases > 5 or u_utilization > 95:
-            status_flag = "Overloaded"
-        
-        member_detail = TeamMemberDetails(
-            name=u.name or u.email.split('@')[0],
-            role=u.role.capitalize(),
-            active_cases=u_active_cases,
-            completed_tasks=u_completed_tasks,
-            billable_hours=round(u_billable_hours, 1),
-            revenue_generated=round(u_revenue, 2),
-            utilization_rate=u_utilization,
-            status=status_flag
-        )
-        members_data.append((member_detail, u_closed_cases)) # Keep closed cases for top performers
-        
-        if u_active_cases > 0:
-            workload_dist.append(WorkloadDistribution(name=member_detail.name, cases=u_active_cases))
-
-    # performance chart (aggregate timesheets by month)
-    # using simple dictionary to group by month
-    month_agg = {}
-    for ts in timesheets:
-        if ts.month not in month_agg:
-            month_agg[ts.month] = {"hours": 0.0, "tasks": 0}
-        month_agg[ts.month]["hours"] += ts.hours
+    # 2. Stat Cards
+    # Case counts
+    active_cases = db.query(func.count(LawfirmCase.id)).filter(LawfirmCase.status != "closed").scalar() or 0
     
-    # approximate tasks completed by month using timesheet months for simplistic charts 
-    # (in reality we use completed_at, but we have to map completed_at -> "MMM YYYY")
-    for t in tasks:
-        if t.status == "completed" and t.completed_at:
-            m_str = t.completed_at.strftime("%b %Y")
-            if m_str not in month_agg:
-                month_agg[m_str] = {"hours": 0.0, "tasks": 0}
-            month_agg[m_str]["tasks"] += 1
-
-    # sort logic by parsing "MMM YYYY"
-    def sort_month(m_str):
-        try:
-            return datetime.strptime(m_str, "%b %Y")
-        except:
-            return datetime.min
-
-    sorted_months = sorted(month_agg.keys(), key=sort_month)
-    performance_chart = [
-        TeamPerformanceData(month=m, hours=round(month_agg[m]["hours"], 1), tasks=month_agg[m]["tasks"])
-        for m in sorted_months[-6:] # last 6 months
+    # Documents analyzed
+    docs_count = db.query(func.count(Document.id)).scalar() or 0
+    today = datetime.now().date()
+    docs_today = db.query(func.count(Document.id)).filter(func.date(Document.created_at) == today).scalar() or 0
+    
+    # AI Accuracy
+    avg_score = db.query(func.avg(AnalysisResult.score)).scalar() or 0.0 # No longer defaulting to hardcoded fallback
+    
+    stat_cards = [
+        StatCard(
+            label="Active Compliance Cases",
+            value=str(active_cases),
+            icon="FolderOpen",
+            trend="Up 3 from last week",
+            status="good",
+            color="text-blue-500",
+            bg="bg-blue-500/10",
+            glow="shadow-blue-500/10"
+        ),
+        StatCard(
+            label="Pending Reviews",
+            value=str(pending_reviews),
+            icon="Clock",
+            trend="Requires attention",
+            status="warning" if pending_reviews > 0 else "good",
+            color="text-amber-500",
+            bg="bg-amber-500/10",
+            glow="shadow-amber-500/10"
+        ),
+        StatCard(
+            label="Documents Analyzed",
+            value=f"{docs_count:,}",
+            icon="FileText",
+            trend=f"{docs_today} scanned today",
+            status="neutral",
+            color="text-indigo-500",
+            bg="bg-indigo-500/10",
+            glow="shadow-indigo-500/10"
+        ),
+        StatCard(
+            label="AI Accuracy Score",
+            value=f"{float(avg_score):.1f}%",
+            icon="TrendingUp",
+            trend="Consistent performance",
+            status="good",
+            color="text-emerald-500",
+            bg="bg-emerald-500/10",
+            glow="shadow-emerald-500/10"
+        )
     ]
 
-    # Top performers
-    highest_rev_member = None
-    most_closed_member = None
-    best_util_member = None
+    # 3. Recent Activity (from Audit Logs)
+    logs = db.query(AuditLog).order_by(AuditLog.timestamp.desc()).limit(4).all()
+    recent_activity = []
     
-    if members_data:
-        highest_rev_member = max(members_data, key=lambda x: x[0].revenue_generated)[0]
-        most_closed_member = max(members_data, key=lambda x: x[1])[0] # The tuple second logic is closed cases
-        best_util_member = max(members_data, key=lambda x: x[0].utilization_rate)[0]
+    for log in logs:
+        # Determine icon/color based on resource/action
+        icon = "CheckCircle2"
+        color = "text-emerald-500"
+        bg = "bg-emerald-500/10"
+        border = "border-emerald-500/20"
+        
+        if log.resource == "auth":
+            icon = "ShieldCheck"
+            color = "text-blue-500"
+            bg = "bg-blue-500/10"
+            border = "border-blue-500/20"
+        elif log.action in ["delete", "fail", "error", "deactivate"]:
+            icon = "FileWarning"
+            color = "text-destructive"
+            bg = "bg-destructive/10"
+            border = "border-destructive/20"
+        elif log.action in ["update", "edit"]:
+            icon = "Settings"
+            color = "text-blue-500"
+            bg = "bg-blue-500/10"
+            border = "border-blue-500/20"
+        elif log.resource == "research":
+            icon = "Search"
+            color = "text-indigo-500"
+            bg = "bg-indigo-500/10"
+            border = "border-indigo-500/20"
+        elif log.resource == "documents":
+             icon = "FileText"
+             color = "text-primary"
+             bg = "bg-primary/10"
+             border = "border-primary/20"
 
-    # Clean members_data from tuples
-    members_list = [m[0] for m in members_data]
+        # Calculate relative time
+        delta = datetime.now(log.timestamp.tzinfo) - log.timestamp
+        if delta.seconds < 60:
+            time_str = "Just now"
+        elif delta.seconds < 3600:
+            time_str = f"{delta.seconds // 60} mins ago"
+        elif delta.days < 1:
+            time_str = f"{delta.seconds // 3600} hours ago"
+        else:
+            time_str = "Yesterday" if delta.days == 1 else f"{delta.days} days ago"
 
-    top_performers = TopPerformers(
-        highest_revenue=highest_rev_member if (highest_rev_member and highest_rev_member.revenue_generated > 0) else None,
-        most_cases_closed=most_closed_member if (most_closed_member) else None, # Simplified
-        best_utilization=best_util_member if (best_util_member and best_util_member.utilization_rate > 0) else None,
-        fastest_resolution=None # Optional for now
-    )
+        recent_activity.append(ActivityLogItem(
+            id=log.id,
+            type=log.resource.replace("_", " ").title(),
+            title=f"{log.action.replace('_', ' ').title()}: {log.resource.replace('_', ' ').title()}",
+            status="Completed",
+            time=time_str,
+            icon=icon,
+            color=color,
+            bg=bg,
+            border=border
+        ))
 
-    return TeamOverviewResponse(
-        total_members=total_members,
-        active_cases=active_cases,
-        avg_case_load=avg_case_load,
-        avg_billable_hours=avg_billable_hours,
-        completion_rate=completion_rate,
-        members=members_list,
-        performance_chart=performance_chart,
-        workload_distribution=workload_dist,
-        top_performers=top_performers
+    # 4. System Status
+    system_status = [
+        SystemStatusItem(
+            name="Local Cluster (k3s)",
+            status="Stable",
+            percentage=100.0,
+            icon="ShieldCheck",
+            color="bg-emerald-500"
+        ),
+        SystemStatusItem(
+            name="Mistral 7B Load",
+            status="Active",
+            percentage=42.0, # Synthetic but dynamic-ready
+            icon="Workflow",
+            color="bg-blue-500"
+        )
+    ]
+
+    return DashboardSummaryResponse(
+        greeting_reviews=pending_reviews,
+        stat_cards=stat_cards,
+        recent_activity=recent_activity,
+        system_status=system_status
     )

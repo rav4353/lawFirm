@@ -70,4 +70,53 @@ class EmailService:
 
             return False
 
+    def send_welcome_email(self, to_email: str, password: str, role: str):
+        """Send a welcome email to a new user created by an admin."""
+        # Development Fallback: Log the credentials so they can be retrieved from logs
+        logger.warning(f"--- WELCOME EMAIL DEBUG LOG ---")
+        logger.warning(f"Recipient: {to_email}")
+        logger.warning(f"Role: {role}")
+        logger.warning(f"Password: {password}")
+        logger.warning(f"-------------------------------")
+
+        subject = "Welcome to Veritas AI - Your Account Credentials"
+        
+        content = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+            <h2 style="color: #646cff; text-align: center;">Welcome to Veritas AI</h2>
+            <p>Hello,</p>
+            <p>An administrator has created an account for you on Veritas AI.</p>
+            <div style="background-color: #f4f4f4; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                <p style="margin: 5px 0;"><strong>Email:</strong> {to_email}</p>
+                <p style="margin: 5px 0;"><strong>Password:</strong> {password}</p>
+                <p style="margin: 5px 0;"><strong>Role:</strong> {role.replace('_', ' ').capitalize()}</p>
+            </div>
+            <p>Please log in at your earliest convenience and change your password for security.</p>
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="http://localhost:5173/login" style="background-color: #646cff; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">Login to Dashboard</a>
+            </div>
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+            <p style="font-size: 12px; color: #888; text-align: center;">&copy; 2026 Veritas AI. All rights reserved.</p>
+        </div>
+        """
+        
+        message = Mail(
+            from_email=(self.from_email, self.from_name),
+            to_emails=to_email,
+            subject=subject,
+            html_content=content
+        )
+        
+        try:
+            response = self.sg.send(message)
+            if response.status_code == 202:
+                logger.warning(f"Welcome email sent successfully to {to_email}")
+                return True
+            else:
+                logger.warning(f"SendGrid welcome email error status: {response.status_code}")
+                return False
+        except Exception as e:
+            logger.warning(f"Detailed SendGrid Welcome Email Exception: {str(e)}")
+            return False
+
 email_service = EmailService()

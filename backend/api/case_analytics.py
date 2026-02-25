@@ -59,7 +59,7 @@ async def get_case_performance_overview(
 
     # 1. Summary Metrics
     total_cases = len(cases)
-    active_cases = len([c for c in cases if c.status not in ["closed", "dismissed"]])
+    active_cases = len([c for c in cases if c.status != "closed"])
     closed_cases = len([c for c in cases if c.status == "closed"])
     delayed_cases = len([c for c in cases if c.status == "delayed"])
     

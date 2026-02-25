@@ -1,22 +1,39 @@
 import os
 import uuid
+import io
 from pathlib import Path
 
 import pdfplumber
+import boto3
+from botocore.client import Config
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
+from config import settings
 from repositories import document_repository
 from services import audit_service
 
-UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
-UPLOAD_DIR.mkdir(exist_ok=True)
+# MinIO Client Initialization
+s3_client = boto3.client(
+    's3',
+    endpoint_url=f"http://{settings.MINIO_ENDPOINT}",
+    aws_access_key_id=settings.MINIO_ACCESS_KEY,
+    aws_secret_access_key=settings.MINIO_SECRET_KEY,
+    config=Config(signature_version='s3v4'),
+    region_name='us-east-1'
+)
+
+def ensure_bucket_exists():
+    try:
+        s3_client.head_bucket(Bucket=settings.MINIO_BUCKET)
+    except:
+        s3_client.create_bucket(Bucket=settings.MINIO_BUCKET)
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
 async def upload_document(db: Session, file: UploadFile, user_id: str):
-    """Validate, save to disk, extract text, and persist metadata."""
+    """Validate, save to MinIO, extract text, and persist metadata."""
 
     # --- Validate content type ---
     if file.content_type != "application/pdf":
@@ -33,16 +50,28 @@ async def upload_document(db: Session, file: UploadFile, user_id: str):
             detail=f"File exceeds maximum size of {MAX_FILE_SIZE // (1024 * 1024)} MB.",
         )
 
-    # --- Save to disk ---
+    # --- Save to MinIO ---
+    ensure_bucket_exists()
     file_id = str(uuid.uuid4())
-    safe_name = f"{file_id}.pdf"
-    disk_path = UPLOAD_DIR / safe_name
-    disk_path.write_bytes(contents)
+    object_key = f"{user_id}/{file_id}.pdf"
+    
+    try:
+        s3_client.put_object(
+            Bucket=settings.MINIO_BUCKET,
+            Key=object_key,
+            Body=contents,
+            ContentType=file.content_type
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload to storage: {str(e)}"
+        )
 
-    # --- Extract text with pdfplumber ---
+    # --- Extract text with pdfplumber (using memory stream) ---
     extracted_text = ""
     try:
-        with pdfplumber.open(disk_path) as pdf:
+        with pdfplumber.open(io.BytesIO(contents)) as pdf:
             for page in pdf.pages:
                 page_text = page.extract_text()
                 if page_text:
@@ -58,7 +87,7 @@ async def upload_document(db: Session, file: UploadFile, user_id: str):
         content_type=file.content_type,
         size_bytes=len(contents),
         extracted_text=extracted_text.strip() or None,
-        disk_path=str(disk_path),
+        disk_path=object_key, # Store S3 key instead of disk path
         uploaded_by=user_id,
     )
     audit_service.log_action(
@@ -68,7 +97,7 @@ async def upload_document(db: Session, file: UploadFile, user_id: str):
         action="document_upload",
         module="Document Management",
         resource_id=doc.id,
-        metadata={"filename": doc.filename, "size_bytes": doc.size_bytes}
+        metadata={"filename": doc.filename, "size_bytes": doc.size_bytes, "storage": "minio"}
     )
     return doc
 
@@ -112,7 +141,7 @@ def delete_document(
     *,
     can_access_any: bool = False,
 ):
-    """Delete a document from disk and database."""
+    """Delete a document from MinIO and database."""
     doc = document_repository.get_document_by_id(db, document_id)
     if not doc:
         raise HTTPException(
@@ -125,11 +154,11 @@ def delete_document(
             detail="Document not found.",
         )
 
-    # Remove file from disk
+    # Remove file from MinIO
     try:
-        os.remove(doc.disk_path)
-    except OSError:
-        pass  # File may already be gone
+        s3_client.delete_object(Bucket=settings.MINIO_BUCKET, Key=doc.disk_path)
+    except Exception as e:
+        print(f"S3 Delete Error: {e}")
 
     document_repository.delete_document(db, doc)
 
@@ -140,5 +169,5 @@ def delete_document(
         action="document_delete",
         module="Document Management",
         resource_id=document_id,
-        metadata={"filename": doc.filename}
+        metadata={"filename": doc.filename, "storage": "minio"}
     )

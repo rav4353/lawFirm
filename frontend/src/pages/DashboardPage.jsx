@@ -1,7 +1,9 @@
+import { useState, useEffect } from "react";
 import { useAuth } from "@/context/useAuth";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { getDashboardSummary } from "@/services/dashboard";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -102,52 +104,19 @@ const statCards = [
   { label: "AI Accuracy Score", value: "98.4%", icon: TrendingUp, trend: "Consistent performance", status: "good", color: "text-emerald-500", bg: "bg-emerald-500/10", glow: "shadow-emerald-500/10" },
 ];
 
-const recentActivity = [
-  { 
-    id: 1, 
-    type: "Document Review", 
-    title: "Project Titan - NDA Analysis", 
-    status: "Completed", 
-    time: "10 mins ago",
-    icon: CheckCircle2,
-    color: "text-emerald-500",
-    bg: "bg-emerald-500/10",
-    border: "border-emerald-500/20"
-  },
-  { 
-    id: 2, 
-    type: "Workflow Execution", 
-    title: "GDPR Clause Verification (#4421)", 
-    status: "Flagged", 
-    time: "1 hour ago",
-    icon: AlertCircle,
-    color: "text-amber-500",
-    bg: "bg-amber-500/10",
-    border: "border-amber-500/20"
-  },
-  { 
-    id: 3, 
-    type: "System Update", 
-    title: "Mistral 7B Model Weights Refreshed", 
-    status: "Completed", 
-    time: "3 hours ago",
-    icon: Settings,
-    color: "text-blue-500",
-    bg: "bg-blue-500/10",
-    border: "border-blue-500/20"
-  },
-  { 
-    id: 4, 
-    type: "Risk Alert", 
-    title: "CCPA Non-Compliance Detected in Acme Corp MSA", 
-    status: "High Priority", 
-    time: "Yesterday",
-    icon: FileWarning,
-    color: "text-destructive",
-    bg: "bg-destructive/10",
-    border: "border-destructive/20"
-  },
-];
+const ICON_MAP = {
+  FolderOpen,
+  Clock,
+  FileText,
+  TrendingUp,
+  CheckCircle2,
+  AlertCircle,
+  Settings,
+  FileWarning,
+  ShieldCheck,
+  Search,
+  Workflow
+};
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -173,17 +142,34 @@ const itemVariants = {
 export default function DashboardPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
   const cfg = roleConfig[user?.role] || roleConfig.paralegal;
   const RoleIcon = cfg.icon;
 
-  const initials = user?.email
-    ? user.email.substring(0, 2).toUpperCase()
-    : "U";
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const result = await getDashboardSummary();
+        setData(result);
+      } catch (err) {
+        console.error("Failed to load dashboard data:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
 
   const handleLogout = () => {
     logout();
     navigate("/");
   };
+
+  const initials = user?.email
+    ? user.email.substring(0, 2).toUpperCase()
+    : "U";
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background overflow-hidden selection:bg-primary/30">
@@ -268,7 +254,7 @@ export default function DashboardPage() {
                         Welcome back, {user?.email ? <span className="text-transparent bg-clip-text bg-linear-to-r from-primary to-purple-500">{user.email.split("@")[0]}</span> : "User"}
                         </h1>
                         <p className="text-base text-muted-foreground">
-                        You have <span className="font-semibold text-foreground">7 pending reviews</span> that require your attention today.
+                        You have <span className="font-semibold text-foreground">{data?.greeting_reviews || 0} pending reviews</span> that require your attention today.
                         </p>
                     </div>
                     <div className="flex items-center self-start sm:self-auto">
@@ -282,38 +268,41 @@ export default function DashboardPage() {
 
             {/* Stat cards row */}
             <motion.div variants={itemVariants} className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {statCards.map((s) => (
-                <Card key={s.label} className={`group relative h-full border-border/40 bg-card/40 backdrop-blur-xl transition-all duration-300 hover:bg-card/60 hover:-translate-y-1 shadow-sm hover:shadow-lg ${s.glow}`}>
-                    <div className={`absolute inset-x-0 -top-px h-px w-full bg-linear-to-r from-transparent via-${s.color.split('-')[1]}-500/30 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100`} />
-                    <CardContent className="flex flex-col gap-4 p-5">
-                    <div className="flex items-start justify-between">
-                        <div className={`flex h-10 w-10 items-center justify-center rounded-xl shadow-inner ${s.bg}`}>
-                            <s.icon className={`h-5 w-5 ${s.color}`} />
+            {(data?.stat_cards || statCards).map((s) => {
+                const Icon = ICON_MAP[s.icon] || FolderOpen;
+                return (
+                    <Card key={s.label} className={`group relative h-full border-border/40 bg-card/40 backdrop-blur-xl transition-all duration-300 hover:bg-card/60 hover:-translate-y-1 shadow-sm hover:shadow-lg ${s.glow}`}>
+                        <div className={`absolute inset-x-0 -top-px h-px w-full bg-linear-to-r from-transparent via-${s.color.split('-')[1]}-500/30 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100`} />
+                        <CardContent className="flex flex-col gap-4 p-5">
+                        <div className="flex items-start justify-between">
+                            <div className={`flex h-10 w-10 items-center justify-center rounded-xl shadow-inner ${s.bg}`}>
+                                <Icon className={`h-5 w-5 ${s.color}`} />
+                            </div>
+                            {/* Status indicator pill */}
+                            {s.status === 'warning' && (
+                                <span className="relative flex h-2.5 w-2.5">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+                                </span>
+                            )}
+                            {s.status === 'good' && (
+                                <div className="flex h-2 w-2 rounded-full bg-emerald-500/50" />
+                            )}
                         </div>
-                        {/* Status indicator pill */}
-                        {s.status === 'warning' && (
-                            <span className="relative flex h-2.5 w-2.5">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
-                            </span>
-                        )}
-                        {s.status === 'good' && (
-                            <div className="flex h-2 w-2 rounded-full bg-emerald-500/50" />
-                        )}
-                    </div>
-                    <div className="space-y-1 mt-2">
-                        <p className="text-3xl font-extrabold tracking-tight text-foreground">{s.value}</p>
-                        <p className="text-sm font-medium text-muted-foreground">{s.label}</p>
-                    </div>
-                    <div className="mt-auto pt-4 border-t border-border/30 flex items-center gap-2">
-                        <TrendingUp className={`h-3.5 w-3.5 ${s.status === 'warning' ? 'text-amber-500/70' : 'text-muted-foreground/50'}`} />
-                        <p className={`text-[11px] font-bold uppercase tracking-wide ${s.status === 'warning' ? 'text-amber-500/90' : 'text-muted-foreground/70'}`}>
-                            {s.trend}
-                        </p>
-                    </div>
-                    </CardContent>
-                </Card>
-            ))}
+                        <div className="space-y-1 mt-2">
+                            <p className="text-3xl font-extrabold tracking-tight text-foreground">{loading ? "..." : s.value}</p>
+                            <p className="text-sm font-medium text-muted-foreground">{s.label}</p>
+                        </div>
+                        <div className="mt-auto pt-4 border-t border-border/30 flex items-center gap-2">
+                            <TrendingUp className={`h-3.5 w-3.5 ${s.status === 'warning' ? 'text-amber-500/70' : 'text-muted-foreground/50'}`} />
+                            <p className={`text-[11px] font-bold uppercase tracking-wide ${s.status === 'warning' ? 'text-amber-500/90' : 'text-muted-foreground/70'}`}>
+                                {s.trend}
+                            </p>
+                        </div>
+                        </CardContent>
+                    </Card>
+                );
+            })}
             </motion.div>
 
             {/* ── Two Column Layout for Details ── */}
@@ -328,28 +317,35 @@ export default function DashboardPage() {
                     
                     <div className="rounded-2xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-lg overflow-hidden">
                         <div className="divide-y divide-border/30">
-                            {recentActivity.map((activity) => (
-                            <div key={activity.id} className="group flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-5 hover:bg-muted/30 transition-all duration-300 gap-4 cursor-pointer relative overflow-hidden">
-                                <div className="absolute inset-y-0 left-0 w-1 bg-transparent transition-colors duration-300 group-hover:bg-primary/50" />
-                                <div className="flex items-center gap-4 relative z-10 pl-2">
-                                    <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-sm border ${activity.bg} ${activity.border} transition-transform duration-300 group-hover:scale-110`}>
-                                        <activity.icon className={`h-5 w-5 ${activity.color}`} />
+                            {loading ? (
+                                <div className="p-8 text-center text-muted-foreground font-medium">Loading recent activity...</div>
+                            ) : (data?.recent_activity || []).length === 0 ? (
+                                <div className="p-8 text-center text-muted-foreground font-medium">No recent activity detected.</div>
+                            ) : (data.recent_activity).map((activity) => {
+                                const Icon = ICON_MAP[activity.icon] || CheckCircle2;
+                                return (
+                                    <div key={activity.id} className="group flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-5 hover:bg-muted/30 transition-all duration-300 gap-4 cursor-pointer relative overflow-hidden">
+                                        <div className="absolute inset-y-0 left-0 w-1 bg-transparent transition-colors duration-300 group-hover:bg-primary/50" />
+                                        <div className="flex items-center gap-4 relative z-10 pl-2">
+                                            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-sm border ${activity.bg} ${activity.border} transition-transform duration-300 group-hover:scale-110`}>
+                                                <Icon className={`h-5 w-5 ${activity.color}`} />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-bold text-foreground transition-colors group-hover:text-primary">{activity.title}</p>
+                                                <p className="text-[13px] font-medium text-muted-foreground mt-1">{activity.type}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 w-full sm:w-auto mt-2 sm:mt-0 pt-2 sm:pt-0 border-t border-border/20 sm:border-t-0 ml-16 sm:ml-0 relative z-10">
+                                            <Badge variant="outline" className={`px-2.5 py-0.5 text-[10px] uppercase font-bold tracking-wider rounded-md ${activity.bg} ${activity.color} ${activity.border}`}>
+                                                {activity.status}
+                                            </Badge>
+                                            <p className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1.5 pt-1">
+                                                <Clock className="h-3.5 w-3.5 opacity-70" /> {activity.time}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-sm font-bold text-foreground transition-colors group-hover:text-primary">{activity.title}</p>
-                                        <p className="text-[13px] font-medium text-muted-foreground mt-1">{activity.type}</p>
-                                    </div>
-                                </div>
-                                <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 w-full sm:w-auto mt-2 sm:mt-0 pt-2 sm:pt-0 border-t border-border/20 sm:border-t-0 ml-16 sm:ml-0 relative z-10">
-                                    <Badge variant="outline" className={`px-2.5 py-0.5 text-[10px] uppercase font-bold tracking-wider rounded-md ${activity.bg} ${activity.color} ${activity.border}`}>
-                                        {activity.status}
-                                    </Badge>
-                                    <p className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1.5 pt-1">
-                                        <Clock className="h-3.5 w-3.5 opacity-70" /> {activity.time}
-                                    </p>
-                                </div>
-                            </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 </motion.div>
@@ -390,34 +386,25 @@ export default function DashboardPage() {
                             </Badge>
                         </div>
                         <div className="space-y-5 relative z-10">
-                            <div>
-                                <div className="flex justify-between items-end mb-2">
-                                    <span className="text-[13px] text-muted-foreground font-semibold flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5"/> Local Cluster (k3s)</span>
-                                    <span className="text-[13px] font-bold text-foreground">Stable</span>
-                                </div>
-                                <div className="h-2 w-full bg-muted/50 rounded-full overflow-hidden shadow-inner">
-                                    <motion.div 
-                                        initial={{ width: 0 }} 
-                                        animate={{ width: "100%" }} 
-                                        transition={{ duration: 1, delay: 0.5 }}
-                                        className="h-full bg-emerald-500 w-full" 
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <div className="flex justify-between items-end mb-2">
-                                    <span className="text-[13px] text-muted-foreground font-semibold flex items-center gap-1.5"><Workflow className="w-3.5 h-3.5"/> Mistral 7B Load</span>
-                                    <span className="text-[13px] font-bold text-foreground">42%</span>
-                                </div>
-                                <div className="h-2 w-full bg-muted/50 rounded-full overflow-hidden shadow-inner">
-                                    <motion.div 
-                                        initial={{ width: 0 }} 
-                                        animate={{ width: "42%" }} 
-                                        transition={{ duration: 1, delay: 0.7 }}
-                                        className="h-full bg-blue-500 rounded-full" 
-                                    />
-                                </div>
-                            </div>
+                            {(data?.system_status || []).map((status) => {
+                                const Icon = ICON_MAP[status.icon] || ShieldCheck;
+                                return (
+                                    <div key={status.name}>
+                                        <div className="flex justify-between items-end mb-2">
+                                            <span className="text-[13px] text-muted-foreground font-semibold flex items-center gap-1.5"><Icon className="w-3.5 h-3.5"/> {status.name}</span>
+                                            <span className="text-[13px] font-bold text-foreground">{loading ? "..." : status.status === "Active" ? `${status.percentage}%` : status.status}</span>
+                                        </div>
+                                        <div className="h-2 w-full bg-muted/50 rounded-full overflow-hidden shadow-inner">
+                                            <motion.div 
+                                                initial={{ width: 0 }} 
+                                                animate={{ width: loading ? 0 : `${status.percentage}%` }} 
+                                                transition={{ duration: 1, delay: 0.5 }}
+                                                className={`h-full ${status.color} rounded-full`} 
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 </motion.div>

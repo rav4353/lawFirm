@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import time
 
 from config import settings
 
@@ -53,65 +54,63 @@ _EMPTY_RESULT: dict[str, Any] = {
 async def analyze_document_compliance(document_text: str) -> dict[str, Any]:
     """
     Send extracted document text to Ollama for GDPR/CCPA compliance analysis.
-
-    Args:
-        document_text: The full text extracted from the PDF document.
-
-    Returns:
-        A dict with keys: gdpr_status, ccpa_status, score, detected_sections,
-        missing_sections, ai_suggestions.
     """
-    system_prompt = _get_system_prompt()
-
-    full_prompt = f"""{system_prompt}
-
---- DOCUMENT TEXT START ---
-{document_text[:8000]}
---- DOCUMENT TEXT END ---
-"""
-
-    payload = {
-        "model": MODEL_NAME,
-        "prompt": full_prompt,
-        "format": "json",
-        "stream": False,
-        "options": {
-            "temperature": 0.1,
-        },
-    }
-
+    from services.metrics_service import AI_INFERENCE_LATENCY
+    
+    start_time = time.time()
     try:
-        logger.info("Sending document (%d chars) to Ollama for compliance analysis...", len(document_text))
-        async with httpx.AsyncClient(timeout=INFERENCE_TIMEOUT) as client:
-            response = await client.post(f"{OLLAMA_URL}/api/generate", json=payload)
-            response.raise_for_status()
+        system_prompt = _get_system_prompt()
 
-            data = response.json()
-            response_text = data.get("response", "{}")
+        full_prompt = f"""{system_prompt}
 
-            try:
-                result = json.loads(response_text)
-                # Validate and normalise the required fields
-                return _normalise_result(result)
-            except json.JSONDecodeError:
-                logger.error("Ollama returned invalid JSON: %s", response_text[:500])
-                return _error_result("AI returned an invalid response format.")
+        DOCUMENT TEXT:
+        {document_text}
+        """
 
-    except httpx.TimeoutException:
-        logger.error("Ollama inference timed out after %ss", INFERENCE_TIMEOUT)
-        return _error_result("AI analysis timed out. The document may be too large.")
+        payload = {
+            "model": MODEL_NAME,
+            "prompt": full_prompt,
+            "format": "json",
+            "stream": False,
+            "options": {
+                "temperature": 0.1,
+            },
+        }
 
-    except httpx.ConnectError:
-        logger.error("Cannot connect to Ollama at %s. Is Ollama running?", OLLAMA_URL)
-        return _error_result("AI analysis service unavailable. Please ensure Ollama is running.")
+        try:
+            logger.info("Sending document (%d chars) to Ollama for compliance analysis...", len(document_text))
+            async with httpx.AsyncClient(timeout=INFERENCE_TIMEOUT) as client:
+                response = await client.post(f"{OLLAMA_URL}/api/generate", json=payload)
+                response.raise_for_status()
 
-    except httpx.RequestError as exc:
-        logger.error("Ollama request failed: %s", exc)
-        return _error_result("AI analysis service unavailable.")
+                data = response.json()
+                response_text = data.get("response", "{}")
 
-    except Exception as exc:
-        logger.exception("Unexpected error during compliance analysis: %s", exc)
-        return _error_result(f"Unexpected error: {exc}")
+                try:
+                    result = json.loads(response_text)
+                    normalized = _normalise_result(result)
+                    
+                    # Track compliance metrics
+                    from services.metrics_service import COMPLIANCE_RESULTS
+                    COMPLIANCE_RESULTS.labels(framework="gdpr", status=normalized["gdpr_status"]).inc()
+                    COMPLIANCE_RESULTS.labels(framework="ccpa", status=normalized["ccpa_status"]).inc()
+                    
+                    return normalized
+                except json.JSONDecodeError:
+                    logger.error("Ollama returned invalid JSON: %s", response_text)
+                    return _error_result("AI model returned an malformed response.")
+
+        except httpx.ReadTimeout:
+            logger.error("Ollama inference timed out after %d seconds.", INFERENCE_TIMEOUT)
+            return _error_result("AI analysis timed out. The document might be too complex.")
+        except httpx.HTTPStatusError as exc:
+            logger.error("Ollama API error: %s", exc)
+            return _error_result(f"AI service error: {exc.response.status_code}")
+        except Exception as exc:
+            logger.exception("Unexpected error during compliance analysis: %s", exc)
+            return _error_result(f"Unexpected error: {exc}")
+    finally:
+        AI_INFERENCE_LATENCY.labels(model=MODEL_NAME, analysis_type="compliance").observe(time.time() - start_time)
 
 
 def _normalise_result(raw: dict[str, Any]) -> dict[str, Any]:

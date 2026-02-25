@@ -11,6 +11,7 @@ from services import audit_service
 from repositories import user_repository
 from schemas.auth import AdminUserCreate, AdminUserUpdate
 from services.auth_service import hash_password
+from services.email_service import email_service
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,10 @@ def admin_create_user(db: Session, data: AdminUserCreate, created_by: str):
         resource_id=user.id,
         metadata={"email": user.email, "role": user.role}
     )
+
+    # Send welcome email with credentials
+    email_service.send_welcome_email(user.email, data.password, user.role)
+
     return user
 
 
