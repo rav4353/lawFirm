@@ -117,9 +117,12 @@ export default function RBACPoliciesPage() {
         setRoles(data.roles);
         if (data.roles.length > 0) {
           setSelectedRoleId(data.roles[0].id);
+        } else {
+          setLoading(false);
         }
       } catch {
         setError("Failed to load roles.");
+        setLoading(false);
       }
     })();
   }, []);
