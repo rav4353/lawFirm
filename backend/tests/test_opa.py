@@ -11,6 +11,7 @@ instance. They verify:
 
 import io
 import uuid
+import os
 from unittest.mock import AsyncMock, patch, MagicMock
 
 import pytest
@@ -18,6 +19,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+os.environ["TESTING"] = "true"
+
+import services.opa_service # Ensure it is imported before patching
 from api.main import app
 from models.database import Base, get_db
 
@@ -70,7 +74,7 @@ def _register_and_login(role: str = "associate") -> str:
     db.close()
     
     resp = client.post(REGISTER_URL, json=user_data, params={"otp_code": "123456"})
-    assert resp.status_code == 201, f"Registration failed: {resp.text}"
+    assert resp.status_code == 201, f"Registration failed ({resp.status_code}): {resp.text}"
     
     # Force the role in the DB because create_user might override it
     db = TestingSessionLocal()
@@ -84,8 +88,10 @@ def _register_and_login(role: str = "associate") -> str:
         LOGIN_URL,
         data={"username": user_data["email"], "password": user_data["password"]},
     )
-    assert "access_token" in resp.json(), f"Login failed: {resp.text}"
-    return resp.json()["access_token"]
+    assert resp.status_code == 200, f"Login failed ({resp.status_code}): {resp.text}"
+    data = resp.json()
+    assert "access_token" in data, f"Missing access_token in response: {data}"
+    return data["access_token"]
 
 
 # ═══════════════════════════════════════

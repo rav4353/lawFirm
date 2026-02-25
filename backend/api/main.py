@@ -10,8 +10,10 @@ from services.metrics_service import PrometheusMiddleware, get_metrics_response
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create all tables on startup
-    Base.metadata.create_all(bind=engine)
+    # Create all tables on startup (only if not in testing)
+    import os
+    if os.getenv("TESTING") != "true":
+        Base.metadata.create_all(bind=engine)
     yield
 
 app = FastAPI(title="Veritas AI API", lifespan=lifespan)
