@@ -25,21 +25,22 @@ _FALLBACK_PERMISSIONS = {
         "users": ["list", "create", "delete", "update", "read"],
         "rbac": ["list", "update"],
         "system": ["read", "write"],
-        "documents": ["list_any", "read_any", "delete_any"],
+        "documents": ["view_all", "upload", "delete_any"],
         "ai_analysis": ["view_any"],
+        "audit_logs": ["view_all", "view_own"],
     },
     "paralegal": {
-        "documents": ["list_own", "read_own", "upload"],
+        "documents": ["view_own", "upload"],
         "ai_analysis": ["view_own"],
         "workflows": ["list"],
     },
     "associate": {
-        "documents": ["list_any", "read_any", "upload"],
+        "documents": ["view_all", "upload"],
         "ai_analysis": ["view_any", "run"],
         "workflows": ["list", "run"],
     },
     "partner": {
-        "documents": ["list_any", "read_any", "upload", "delete_any"],
+        "documents": ["view_all", "upload", "delete_any"],
         "ai_analysis": ["view_any", "run", "approve"],
         "workflows": ["list", "run", "approve"],
     }

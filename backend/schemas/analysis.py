@@ -47,6 +47,7 @@ class ComplianceAnalysisResponse(BaseModel):
     """Response schema for the /analyze-document and /analysis/{document_id} endpoints."""
     id: str
     document_id: str
+    workflow_id: str | None = None
     document_name: str
     gdpr_status: str
     ccpa_status: str

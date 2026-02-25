@@ -16,6 +16,7 @@ def list_audit_logs(
     *,
     user_id: str | None = None,
     resource: str | None = None,
+    module: str | None = None,
     action: str | None = None,
     resource_id: str | None = None,
     limit: int = 50,
@@ -26,6 +27,8 @@ def list_audit_logs(
         q = q.filter(AuditLog.user_id == user_id)
     if resource:
         q = q.filter(AuditLog.resource == resource)
+    if module:
+        q = q.filter(AuditLog.module == module)
     if action:
         q = q.filter(AuditLog.action == action)
     if resource_id:

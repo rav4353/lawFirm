@@ -50,6 +50,7 @@ export default function AuditLogsPage() {
   const [error, setError] = useState('');
 
   const [resource, setResource] = useState('');
+  const [module, setModule] = useState('');
   const [action, setAction] = useState('');
   const [resourceId, setResourceId] = useState('');
 
@@ -66,10 +67,11 @@ export default function AuditLogsPage() {
       limit,
       offset,
       resource: resource.trim() || undefined,
+      module: module.trim() || undefined,
       action: action.trim() || undefined,
       resource_id: resourceId.trim() || undefined,
     }),
-    [limit, offset, resource, action, resourceId]
+    [limit, offset, resource, module, action, resourceId]
   );
 
   const fetchLogs = async () => {
@@ -165,11 +167,11 @@ export default function AuditLogsPage() {
           </motion.div>
         )}
 
-        <div className="mb-6 grid gap-3 sm:grid-cols-3">
+        <div className="mb-6 grid gap-3 sm:grid-cols-4">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Filter by resource (e.g. documents)"
+              placeholder="Filter by resource"
               value={resource}
               onChange={(e) => {
                 setOffset(0);
@@ -179,7 +181,16 @@ export default function AuditLogsPage() {
             />
           </div>
           <Input
-            placeholder="Filter by action (e.g. upload)"
+            placeholder="Filter by module"
+            value={module}
+            onChange={(e) => {
+              setOffset(0);
+              setModule(e.target.value);
+            }}
+            className="bg-card/40 border-border/50 rounded-full h-9"
+          />
+          <Input
+            placeholder="Filter by action"
             value={action}
             onChange={(e) => {
               setOffset(0);
@@ -236,7 +247,7 @@ export default function AuditLogsPage() {
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">
-                            {log.role}
+                            {log.module}
                           </Badge>
                           <span className="text-sm font-bold text-foreground truncate">
                             {log.resource}/{log.action}

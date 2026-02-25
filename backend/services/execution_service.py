@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from repositories import execution_repository, workflow_repository
 from schemas.analysis import AnalysisRequest
-from services import analyze_service, document_service
+from services import analyze_service, document_service, audit_service
 
 
 def _now():
@@ -77,6 +77,16 @@ async def execute_workflow(
         status="running",
         triggered_by=user_id,
         started_at=_now(),
+    )
+
+    audit_service.log_action(
+        db,
+        user_id=user_id,
+        resource="execution",
+        action="workflow_execution_started",
+        module="Workflow Engine",
+        resource_id=execution.id,
+        metadata={"workflow_id": workflow_id}
     )
 
     ctx: dict[str, Any] = {

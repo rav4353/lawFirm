@@ -67,7 +67,13 @@ def send_registration_otp(db: Session, email: str):
         )
     
     otp_code = otp_repository.generate_otp(db, email, "account_verification")
-    return email_service.send_otp_email(email, otp_code, "account_verification")
+    success = email_service.send_otp_email(email, otp_code, "account_verification")
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send verification email. Please try again later or check system logs."
+        )
+    return True
 
 
 def authenticate_user(db: Session, email: str, password: str) -> Token:
@@ -83,6 +89,7 @@ def authenticate_user(db: Session, email: str, password: str) -> Token:
             user_id="anonymous",
             resource="auth",
             action="login_failure",
+            module="Authentication",
             metadata={"email": email, "reason": "invalid_credentials"}
         )
         raise HTTPException(
@@ -97,6 +104,7 @@ def authenticate_user(db: Session, email: str, password: str) -> Token:
             user=user,
             resource="auth",
             action="login_blocked_inactive",
+            module="Authentication",
             metadata={"email": email, "reason": "account_inactive"}
         )
         raise HTTPException(
@@ -110,6 +118,7 @@ def authenticate_user(db: Session, email: str, password: str) -> Token:
         user=user,
         resource="auth",
         action="login_success",
+        module="Authentication",
         metadata={"email": email}
     )
 
@@ -125,7 +134,13 @@ def forgot_password(db: Session, email: str):
         return True
     
     otp_code = otp_repository.generate_otp(db, email, "password_reset")
-    return email_service.send_otp_email(email, otp_code, "password_reset")
+    success = email_service.send_otp_email(email, otp_code, "password_reset")
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send reset email. Please try again later."
+        )
+    return True
 
 
 def reset_password(db: Session, data: ResetPassword):

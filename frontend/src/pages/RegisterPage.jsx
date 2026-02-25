@@ -1,8 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { motion as Motion } from "framer-motion";
-import { useAuth } from "@/context/useAuth";
 import api from "@/services/api";
 
 import { Button } from "@/components/ui/button";
@@ -32,7 +31,6 @@ import {
 } from "lucide-react";
 
 export default function RegisterPage() {
-  const { register: registerUser } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(1); // 1: Details, 2: OTP
   const [serverError, setServerError] = useState("");
@@ -41,6 +39,43 @@ export default function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmittingStep1, setIsSubmittingStep1] = useState(false);
   const [formData, setFormData] = useState(null);
+
+  const ResendOTPButton = ({ email }) => {
+    const [cooldown, setCooldown] = useState(0);
+    const [isResending, setIsResending] = useState(false);
+
+    useEffect(() => {
+      let timer;
+      if (cooldown > 0) {
+        timer = setInterval(() => setCooldown(c => c - 1), 1000);
+      }
+      return () => clearInterval(timer);
+    }, [cooldown]);
+
+    const handleResend = async () => {
+      if (cooldown > 0 || isResending) return;
+      setIsResending(true);
+      try {
+        await api.post("/auth/registration-otp", { email });
+        setCooldown(60);
+      } catch (err) {
+        console.error("Failed to resend OTP", err);
+      } finally {
+        setIsResending(false);
+      }
+    };
+
+    return (
+      <button
+        type="button"
+        onClick={handleResend}
+        disabled={cooldown > 0 || isResending}
+        className="text-xs font-semibold text-primary hover:underline disabled:text-muted-foreground disabled:no-underline"
+      >
+        {isResending ? "Sending..." : cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend code"}
+      </button>
+    );
+  };
 
   const {
     register,
@@ -179,7 +214,7 @@ export default function RegisterPage() {
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      id="email"
+                      id="register-email"
                       type="email"
                       placeholder="you@lawfirm.com"
                       className="pl-9"
@@ -204,7 +239,7 @@ export default function RegisterPage() {
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      id="password"
+                      id="register-password"
                       type={showPassword ? "text" : "password"}
                       placeholder="Min. 8 characters"
                       className="pl-9 pr-10"
@@ -241,7 +276,7 @@ export default function RegisterPage() {
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      id="confirmPassword"
+                      id="register-confirmPassword"
                       type={showConfirmPassword ? "text" : "password"}
                       placeholder="Re-enter your password"
                       className="pl-9 pr-10"
@@ -282,7 +317,7 @@ export default function RegisterPage() {
                   <div className="relative">
                     <KeyRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      id="otp"
+                      id="register-otp"
                       placeholder="6-digit code"
                       className="pl-9"
                       {...register("otp_code", { 
@@ -294,6 +329,9 @@ export default function RegisterPage() {
                   {errors.otp_code && (
                     <p className="text-xs text-destructive">{errors.otp_code.message}</p>
                   )}
+                  <div className="flex justify-end mt-1">
+                    <ResendOTPButton email={formData?.email} />
+                  </div>
                 </div>
                 <Button
                   type="submit"

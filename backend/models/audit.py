@@ -16,6 +16,7 @@ class AuditLog(Base):
     role = Column(String, nullable=False)
 
     action = Column(String, nullable=False)
+    module = Column(String, nullable=False)  # New column to indicate system module
     resource = Column(String, nullable=False)
     resource_id = Column(String, nullable=True, index=True)
 

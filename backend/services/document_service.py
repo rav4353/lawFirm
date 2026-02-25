@@ -7,6 +7,7 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from repositories import document_repository
+from services import audit_service
 
 UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -59,6 +60,15 @@ async def upload_document(db: Session, file: UploadFile, user_id: str):
         extracted_text=extracted_text.strip() or None,
         disk_path=str(disk_path),
         uploaded_by=user_id,
+    )
+    audit_service.log_action(
+        db,
+        user_id=user_id,
+        resource="document",
+        action="document_upload",
+        module="Document Management",
+        resource_id=doc.id,
+        metadata={"filename": doc.filename, "size_bytes": doc.size_bytes}
     )
     return doc
 
@@ -122,3 +132,13 @@ def delete_document(
         pass  # File may already be gone
 
     document_repository.delete_document(db, doc)
+
+    audit_service.log_action(
+        db,
+        user_id=user_id,
+        resource="document",
+        action="document_delete",
+        module="Document Management",
+        resource_id=document_id,
+        metadata={"filename": doc.filename}
+    )

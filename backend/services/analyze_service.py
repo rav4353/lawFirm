@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from repositories import analysis_repository, document_repository, prompt_repository
 from schemas.analysis import AnalysisRequest
-from services import ai_service
+from services import ai_service, audit_service
 
 
 async def process_analysis(
@@ -59,4 +59,13 @@ async def process_analysis(
         analyzed_by=user_id,
     )
     
+    audit_service.log_action(
+        db,
+        user_id=user_id,
+        resource="analysis",
+        action="analysis_performed",
+        module="AI Compliance Analysis",
+        resource_id=result.id,
+        metadata={"analysis_type": request.analysis_type, "document_id": request.document_id}
+    )
     return result

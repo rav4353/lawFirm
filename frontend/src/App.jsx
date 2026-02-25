@@ -14,6 +14,9 @@ import RBACPoliciesPage from './pages/RBACPoliciesPage';
 import LandingPage from './pages/LandingPage';
 import LegalResearchPage from './pages/LegalResearchPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import FirmAnalyticsPage from './pages/FirmAnalyticsPage';
+import TeamOverviewPage from './pages/TeamOverviewPage';
+import MonitorCasePerformancePage from './pages/MonitorCasePerformancePage';
 import { ThemeProvider } from './context/ThemeProvider';
 import { Toaster } from 'sonner';
 
@@ -51,8 +54,23 @@ function AppRoutes() {
           <LegalResearchPage />
         </ProtectedRoute>
       } />
+      <Route path="/firm-analytics" element={
+        <ProtectedRoute>
+          <FirmAnalyticsPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/team-overview" element={
+        <ProtectedRoute>
+          <TeamOverviewPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/analytics/case-performance" element={
+        <ProtectedRoute>
+          <MonitorCasePerformancePage />
+        </ProtectedRoute>
+      } />
       <Route path="/audit-logs" element={
-        <ProtectedRoute requiredPermission={{ resource: 'audit_logs', action: 'view_own' }}>
+        <ProtectedRoute requiredPermission={{ resource: 'audit_logs', action: 'view_all' }}>
           <AuditLogsPage />
         </ProtectedRoute>
       } />

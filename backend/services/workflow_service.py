@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from repositories import workflow_repository
 from schemas.workflow import WorkflowCreate, WorkflowUpdate
+from services import audit_service
 
 # Valid node types for the compliance workflow builder
 VALID_NODE_TYPES = {
@@ -70,6 +71,15 @@ def create_workflow(db: Session, data: WorkflowCreate, user_id: str):
         nodes_json=json.dumps(nodes_dicts),
         edges_json=json.dumps(edges_dicts),
         created_by=user_id,
+    )
+    audit_service.log_action(
+        db,
+        user_id=user_id,
+        resource="workflow",
+        action="workflow_created",
+        module="Workflow Management",
+        resource_id=wf.id,
+        metadata={"name": wf.name}
     )
     return wf
 
@@ -135,7 +145,18 @@ def update_workflow(
         edges_dicts = [e.model_dump() for e in data.edges]
         update_kwargs["edges_json"] = json.dumps(edges_dicts)
 
-    return workflow_repository.update_workflow(db, wf, **update_kwargs)
+    updated_wf = workflow_repository.update_workflow(db, wf, **update_kwargs)
+
+    audit_service.log_action(
+        db,
+        user_id=user_id,
+        resource="workflow",
+        action="workflow_updated",
+        module="Workflow Management",
+        resource_id=workflow_id,
+        metadata={"updated_fields": list(update_kwargs.keys())}
+    )
+    return updated_wf
 
 
 def delete_workflow(db: Session, workflow_id: str, user_id: str):
@@ -147,3 +168,13 @@ def delete_workflow(db: Session, workflow_id: str, user_id: str):
             detail="Workflow not found.",
         )
     workflow_repository.delete_workflow(db, wf)
+
+    audit_service.log_action(
+        db,
+        user_id=user_id,
+        resource="workflow",
+        action="workflow_deleted",
+        module="Workflow Management",
+        resource_id=workflow_id,
+        metadata={"name": wf.name}
+    )

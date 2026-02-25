@@ -6,10 +6,12 @@ export const analysisService = {
    * @param {string} documentId
    * @returns {Promise<object>} ComplianceAnalysisResponse
    */
-  async analyzeDocument(documentId) {
-    const response = await api.post(
-      `/analyze-document?document_id=${encodeURIComponent(documentId)}`
-    );
+  async analyzeDocument(documentId, workflowId = null) {
+    let url = `/analyze-document?document_id=${encodeURIComponent(documentId)}`;
+    if (workflowId) {
+      url += `&workflow_id=${encodeURIComponent(workflowId)}`;
+    }
+    const response = await api.post(url);
     return response.data;
   },
 

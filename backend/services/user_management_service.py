@@ -7,6 +7,7 @@ import logging
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from services import audit_service
 from repositories import user_repository
 from schemas.auth import AdminUserCreate, AdminUserUpdate
 from services.auth_service import hash_password
@@ -45,6 +46,16 @@ def admin_create_user(db: Session, data: AdminUserCreate, created_by: str):
         "Admin %s created user %s (%s) with role %s",
         created_by, user.id, user.email, user.role,
     )
+
+    audit_service.log_action(
+        db,
+        user_id=created_by,
+        resource="user",
+        action="user_created",
+        module="User Management",
+        resource_id=user.id,
+        metadata={"email": user.email, "role": user.role}
+    )
     return user
 
 
@@ -79,6 +90,16 @@ def admin_update_user(db: Session, user_id: str, data: AdminUserUpdate, updated_
         "Admin %s updated user %s — fields: %s",
         updated_by, user_id, list(updates.keys()),
     )
+
+    audit_service.log_action(
+        db,
+        user_id=updated_by,
+        resource="user",
+        action="user_updated",
+        module="User Management",
+        resource_id=user_id,
+        metadata={"fields": list(updates.keys())}
+    )
     return user
 
 
@@ -105,6 +126,16 @@ def admin_deactivate_user(db: Session, user_id: str, deactivated_by: str):
     user = user_repository.deactivate_user(db, user)
 
     logger.info("Admin %s deactivated user %s (%s)", deactivated_by, user_id, user.email)
+
+    audit_service.log_action(
+        db,
+        user_id=deactivated_by,
+        resource="user",
+        action="user_deactivated",
+        module="User Management",
+        resource_id=user_id,
+        metadata={"email": user.email}
+    )
     return user
 
 
@@ -125,4 +156,45 @@ def admin_activate_user(db: Session, user_id: str, activated_by: str):
     user = user_repository.activate_user(db, user)
 
     logger.info("Admin %s activated user %s (%s)", activated_by, user_id, user.email)
+
+    audit_service.log_action(
+        db,
+        user_id=activated_by,
+        resource="user",
+        action="user_activated",
+        module="User Management",
+        resource_id=user_id,
+        metadata={"email": user.email}
+    )
     return user
+
+
+def admin_delete_user(db: Session, user_id: str, deleted_by: str):
+    """Permanently delete a user account. IT Admin cannot delete themselves."""
+    if user_id == deleted_by:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete your own account.",
+        )
+
+    user = user_repository.get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found.",
+        )
+
+    user_email = user.email
+    user_repository.delete_user(db, user)
+
+    logger.info("Admin %s deleted user %s (%s)", deleted_by, user_id, user_email)
+
+    audit_service.log_action(
+        db,
+        user_id=deleted_by,
+        resource="user",
+        action="user_deleted",
+        module="User Management",
+        resource_id=user_id,
+        metadata={"email": user_email}
+    )

@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     OPA_URL: str = "http://localhost:8181"
     
     # SendGrid Settings
-    SENDGRID_API_KEY: str = "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"
+    SENDGRID_API_KEY: str = ""
     SENDGRID_FROM_EMAIL: str = "ravanthsri20@gmail.com"
     SENDGRID_FROM_NAME: str = "Veritas AI"
 

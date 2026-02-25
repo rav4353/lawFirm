@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, String, Boolean, DateTime, Enum as SAEnum
+from sqlalchemy import Column, String, Boolean, DateTime, Integer, Enum as SAEnum
 
 from models.database import Base
 
@@ -19,4 +19,6 @@ class User(Base):
         default="paralegal",
     )
     is_active = Column(Boolean, default=True)
+    department = Column(String, default="Corporate") # e.g. Litigation, Corporate
+    expected_hours_per_month = Column(Integer, default=160)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

@@ -36,6 +36,7 @@ import {
   MoreVertical,
   Pencil,
   UserX,
+  Trash2,
   KeyRound,
   CheckCircle2,
 } from "lucide-react";
@@ -346,6 +347,7 @@ export default function UserManagementPage() {
   const [editUser, setEditUser] = useState(null);
   const [deactivateTarget, setDeactivateTarget] = useState(null);
   const [activateTarget, setActivateTarget] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -392,6 +394,19 @@ export default function UserManagementPage() {
       toast.error(err.response?.data?.detail || "Failed to activate user.");
     } finally {
       setActivateTarget(null);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await usersService.delete(deleteTarget);
+      toast.success("User permanently deleted");
+      fetchUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to delete user.");
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -559,101 +574,132 @@ export default function UserManagementPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/30">
-                  {filteredUsers.map((u, i) => {
-                    const rc = roleConfig[u.role] || roleConfig.paralegal;
-                    const RoleIcon = rc.icon;
-                    const isSelf = u.id === currentUser?.id;
-                    return (
-                      <motion.tr
-                        key={u.id}
-                        initial="hidden"
-                        animate="visible"
-                        variants={fadeUp}
-                        custom={i}
-                        className="group hover:bg-muted/20 transition-colors"
-                      >
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className={`flex h-9 w-9 items-center justify-center rounded-full ${rc.bg} ${rc.border} border`}>
-                              <span className={`text-sm font-bold ${rc.color}`}>
-                                {(u.name || u.email)[0].toUpperCase()}
-                              </span>
+                  {filteredUsers.length > 0 ? (
+                    filteredUsers.map((u, i) => {
+                      const rc = roleConfig[u.role] || roleConfig.paralegal;
+                      const RoleIcon = rc.icon;
+                      const isSelf = u.id === currentUser?.id;
+                      return (
+                        <motion.tr
+                          key={u.id}
+                          initial="hidden"
+                          animate="visible"
+                          variants={fadeUp}
+                          custom={i}
+                          className="group hover:bg-muted/20 transition-colors"
+                        >
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <div className={`flex h-9 w-9 items-center justify-center rounded-full ${rc.bg} ${rc.border} border`}>
+                                <span className={`text-sm font-bold ${rc.color}`}>
+                                  {(u.name || u.email)[0].toUpperCase()}
+                                </span>
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold truncate">
+                                  {u.name || "—"}
+                                  {isSelf && <span className="ml-1.5 text-[10px] text-muted-foreground">(You)</span>}
+                                </p>
+                                <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                              </div>
                             </div>
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold truncate">
-                                {u.name || "—"}
-                                {isSelf && <span className="ml-1.5 text-[10px] text-muted-foreground">(You)</span>}
-                              </p>
-                              <p className="text-xs text-muted-foreground truncate">{u.email}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge variant="outline" className={`gap-1 ${rc.border} ${rc.bg} ${rc.color} border`}>
-                            <RoleIcon className="h-3 w-3" />
-                            {rc.label}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3">
-                          {u.is_active ? (
-                            <Badge className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500/20">
-                              Active
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge variant="outline" className={`gap-1 ${rc.border} ${rc.bg} ${rc.color} border`}>
+                              <RoleIcon className="h-3 w-3" />
+                              {rc.label}
                             </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="bg-red-500/10 text-red-500 border border-red-500/20">
-                              Inactive
-                            </Badge>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs text-muted-foreground">{formatDate(u.created_at)}</span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 opacity-70 group-hover:opacity-100">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => setEditUser(u)}>
-                                <Pencil className="mr-2 h-4 w-4" />
-                                Edit User
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => setEditUser({ ...u, _resetPassword: true })}>
-                                <KeyRound className="mr-2 h-4 w-4" />
-                                Reset Password
-                              </DropdownMenuItem>
-                                {!isSelf && u.is_active && (
-                                  <>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      className="text-destructive focus:text-destructive"
-                                      onClick={() => setDeactivateTarget(u.id)}
-                                    >
-                                      <UserX className="mr-2 h-4 w-4" />
-                                      Deactivate
-                                    </DropdownMenuItem>
-                                  </>
-                                )}
-                                {!isSelf && !u.is_active && (
-                                  <>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      className="text-emerald-500 focus:text-emerald-500"
-                                      onClick={() => setActivateTarget(u.id)}
-                                    >
-                                      <CheckCircle2 className="mr-2 h-4 w-4" />
-                                      Activate
-                                    </DropdownMenuItem>
-                                  </>
-                                )}
-                              </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </motion.tr>
-                    );
-                  })}
+                          </td>
+                          <td className="px-4 py-3">
+                            {u.is_active ? (
+                              <Badge className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500/20">
+                                Active
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="bg-red-500/10 text-red-500 border border-red-500/20">
+                                Inactive
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-xs text-muted-foreground">{formatDate(u.created_at)}</span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 opacity-70 group-hover:opacity-100">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => setEditUser(u)}>
+                                  <Pencil className="mr-2 h-4 w-4" />
+                                  Edit User
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setEditUser({ ...u, _resetPassword: true })}>
+                                  <KeyRound className="mr-2 h-4 w-4" />
+                                  Reset Password
+                                </DropdownMenuItem>
+                                  {!isSelf && u.is_active && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        className="text-destructive focus:text-destructive"
+                                        onClick={() => setDeactivateTarget(u.id)}
+                                      >
+                                        <UserX className="mr-2 h-4 w-4" />
+                                        Deactivate
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                  {!isSelf && !u.is_active && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        className="text-emerald-500 focus:text-emerald-500"
+                                        onClick={() => setActivateTarget(u.id)}
+                                      >
+                                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                                        Activate
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                  {!isSelf && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        className="text-destructive focus:text-destructive"
+                                        onClick={() => setDeleteTarget(u.id)}
+                                      >
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        Delete User
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                          </td>
+                        </motion.tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-12 text-center">
+                        <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                          <Search className="h-8 w-8 opacity-20" />
+                          <p className="text-sm font-medium">No users match your search criteria</p>
+                          <Button 
+                            variant="link" 
+                            size="sm" 
+                            onClick={() => setSearchQuery("")}
+                            className="text-primary font-bold h-auto p-0"
+                          >
+                            Clear search
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -702,6 +748,26 @@ export default function UserManagementPage() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmActivate} className="bg-emerald-500 text-white hover:bg-emerald-600">
               Activate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive flex items-center gap-2">
+              <Trash2 className="h-5 w-5" />
+              Permanently Delete User?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This action is irreversible. All records associated with this user will be permanently removed from the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-white hover:bg-destructive/90">
+              Permanently Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

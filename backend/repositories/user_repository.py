@@ -82,3 +82,9 @@ def activate_user(db: Session, user: User) -> User:
     db.commit()
     db.refresh(user)
     return user
+
+
+def delete_user(db: Session, user: User) -> None:
+    """Permanently delete a user record."""
+    db.delete(user)
+    db.commit()

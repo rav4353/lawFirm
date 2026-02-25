@@ -8,6 +8,7 @@ class AuditLogResponse(BaseModel):
     user_id: str
     role: str
     resource: str
+    module: str
     action: str
     resource_id: str | None
     timestamp: datetime

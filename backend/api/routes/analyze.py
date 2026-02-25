@@ -14,19 +14,19 @@ router = APIRouter(prefix="/analyze", tags=["Analysis"])
 @router.post("", response_model=AnalysisResultResponse, status_code=201)
 async def analyze_document(
     request: AnalysisRequest,
-    current_user: User = Depends(require_permission("documents", "read_own")),  # Must be able to read doc to analyze it
+    current_user: User = Depends(require_permission("documents", "view_own")),  # Must be able to read doc to analyze it
     db: Session = Depends(get_db),
 ):
     """Trigger an AI analysis on a document. Returns the Reasoning Path."""
-    can_read_any = await opa_service.check_permission(
-        current_user.role, "documents", "read_any"
+    can_view_all = await opa_service.check_permission(
+        current_user.role, "documents", "view_all"
     )
     # Enforce ownership / access by actually fetching via document_service
     document_service.get_document(
         db,
         request.document_id,
         current_user.id,
-        can_access_any=can_read_any,
+        can_access_any=can_view_all,
     )
 
     result = await analyze_service.process_analysis(db, request, current_user.id)
@@ -36,7 +36,7 @@ async def analyze_document(
 @router.get("/results/{result_id}", response_model=AnalysisResultResponse)
 async def get_analysis_result(
     result_id: str,
-    current_user: User = Depends(require_permission("documents", "read_own")),
+    current_user: User = Depends(require_permission("documents", "view_own")),
     db: Session = Depends(get_db),
 ):
     """Fetch a past AI analysis result including its Reasoning Path."""
@@ -47,15 +47,15 @@ async def get_analysis_result(
             detail="Analysis result not found.",
         )
 
-    can_read_any = await opa_service.check_permission(
-        current_user.role, "documents", "read_any"
+    can_view_all = await opa_service.check_permission(
+        current_user.role, "documents", "view_all"
     )
     # If user can't read any, ensure the referenced document is theirs
     document_service.get_document(
         db,
         result.document_id,
         current_user.id,
-        can_access_any=can_read_any,
+        can_access_any=can_view_all,
     )
 
     return result

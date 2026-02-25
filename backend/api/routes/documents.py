@@ -36,22 +36,22 @@ async def list_documents(
     db: Session = Depends(get_db),
 ):
     """List documents. Partners/admins see all; others see only their own."""
-    can_list_all = await opa_service.check_permission(
-        current_user.role, "documents", "list_all"
+    can_view_all = await opa_service.check_permission(
+        current_user.role, "documents", "view_all"
     )
     audit_service.log_action(
         db,
         user=current_user,
         resource="documents",
-        action="list_all" if can_list_all else "list_own",
+        action="view_all" if can_view_all else "view_own",
         opa_input={
             "role": current_user.role,
             "resource": "documents",
             "action": "list_all",
         },
-        opa_decision={"allow": bool(can_list_all)},
+        opa_decision={"allow": bool(can_view_all)},
     )
-    return document_service.list_documents(db, current_user.id, can_list_all=can_list_all)
+    return document_service.list_documents(db, current_user.id, can_list_all=can_view_all)
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)
@@ -61,24 +61,24 @@ async def get_document(
     db: Session = Depends(get_db),
 ):
     """Get details and extracted text of a specific document."""
-    can_read_any = await opa_service.check_permission(
-        current_user.role, "documents", "read_any"
+    can_view_all = await opa_service.check_permission(
+        current_user.role, "documents", "view_all"
     )
     audit_service.log_action(
         db,
         user=current_user,
         resource="documents",
-        action="read_any" if can_read_any else "read_own",
+        action="view_all" if can_view_all else "view_own",
         resource_id=document_id,
         opa_input={
             "role": current_user.role,
             "resource": "documents",
-            "action": "read_any",
+            "action": "view_all",
         },
-        opa_decision={"allow": bool(can_read_any)},
+        opa_decision={"allow": bool(can_view_all)},
     )
     return document_service.get_document(
-        db, document_id, current_user.id, can_access_any=can_read_any
+        db, document_id, current_user.id, can_access_any=can_view_all
     )
 
 

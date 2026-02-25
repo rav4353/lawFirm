@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes import auth, documents, workflows, prompts, analyze, executions, audit_logs, compliance, users, rbac, legal_research
+from api import analytics, case_analytics
 from models.database import Base, engine
 from models.workflow import Workflow  # noqa: F401
 from models.prompt import PromptVersion  # noqa: F401 
@@ -12,6 +13,11 @@ from models.execution import WorkflowExecution, ExecutionStep  # noqa: F401 - DB
 from models.audit import AuditLog  # noqa: F401 - DB init
 from models.rbac import Role, Permission, RolePermission  # noqa: F401 - DB init
 from models.legal_research import LegalCase, ResearchQuery, SavedCase  # noqa: F401 - DB init
+from models.client import Client  # noqa: F401 - DB init
+from models.billing import Billing  # noqa: F401 - DB init
+from models.lawfirm_case import LawfirmCase  # noqa: F401 - DB init
+from models.lawfirm_task import LawfirmTask  # noqa: F401 - DB init
+from models.timesheet import Timesheet  # noqa: F401 - DB init
 
 
 @asynccontextmanager
@@ -44,6 +50,8 @@ app.include_router(compliance.router)
 app.include_router(users.router)
 app.include_router(rbac.router)
 app.include_router(legal_research.router)
+app.include_router(analytics.router)
+app.include_router(case_analytics.router)
 
 
 @app.get("/health")

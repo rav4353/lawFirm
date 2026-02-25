@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { documentService } from "@/services/documents";
 import { analysisService } from "@/services/analysis";
+import { workflowService } from "@/services/workflows";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ import {
   Lightbulb,
   BarChart3,
   Sparkles,
+  Workflow,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -306,6 +308,18 @@ export default function DocumentsPage() {
   // Compliance analysis state
   const [analyzingDocId, setAnalyzingDocId] = useState(null);
   const [complianceResult, setComplianceResult] = useState(null);
+  const [workflows, setWorkflows] = useState([]);
+  const [showWorkflowModal, setShowWorkflowModal] = useState(false);
+  const [docToAnalyze, setDocToAnalyze] = useState(null);
+ 
+  const fetchWorkflows = useCallback(async () => {
+    try {
+      const data = await workflowService.list();
+      setWorkflows((data.workflows || []).filter(wf => wf.is_active));
+    } catch {
+      toast.error("Failed to load active workflows.");
+    }
+  }, []);
 
   const fetchDocuments = useCallback(async () => {
     try {
@@ -320,7 +334,8 @@ export default function DocumentsPage() {
 
   useEffect(() => {
     fetchDocuments();
-  }, [fetchDocuments]);
+    fetchWorkflows();
+  }, [fetchDocuments, fetchWorkflows]);
 
   const handleUpload = async (file) => {
     if (!file) return;
@@ -395,11 +410,22 @@ export default function DocumentsPage() {
   };
 
   // ── Compliance Analysis ──
-  const handleAnalyze = async (docId) => {
+  const handleAnalyze = (docId) => {
+    setDocToAnalyze(docId);
+    setShowWorkflowModal(true);
+  };
+ 
+  const startAnalysis = async (workflowId) => {
+    if (!docToAnalyze) return;
+    
+    const docId = docToAnalyze;
+    setShowWorkflowModal(false);
+    setDocToAnalyze(null);
+    
     setAnalyzingDocId(docId);
     toast.info("Starting AI compliance analysis…");
     try {
-      const result = await analysisService.analyzeDocument(docId);
+      const result = await analysisService.analyzeDocument(docId, workflowId);
       setComplianceResult(result);
       toast.success(`Analysis complete — Score: ${result.score}/100`);
     } catch (err) {
@@ -757,6 +783,59 @@ export default function DocumentsPage() {
         </AnimatePresence>
       </main>
 
+      {/* Workflow Selection Modal */}
+      <AlertDialog open={showWorkflowModal} onOpenChange={setShowWorkflowModal}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 mb-2">
+              <Workflow className="h-6 w-6 text-primary" />
+            </div>
+            <AlertDialogTitle>Select Workflow</AlertDialogTitle>
+            <AlertDialogDescription>
+              Choose an active workflow to analyze this document.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="py-4 space-y-2 max-h-[300px] overflow-auto px-1">
+            {workflows.length === 0 ? (
+              <div className="text-center py-6 border rounded-lg border-dashed">
+                <p className="text-sm text-muted-foreground">No active workflows available.</p>
+                <Link to="/workflows" className="text-xs text-primary hover:underline mt-1 inline-block">
+                  Go to Workflows
+                </Link>
+              </div>
+            ) : (
+              workflows.map(wf => (
+                <button
+                  key={wf.id}
+                  onClick={() => startAnalysis(wf.id)}
+                  className="w-full flex flex-col items-start p-3 rounded-lg border border-border/50 hover:bg-primary/5 hover:border-primary/30 transition-all text-left group"
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <span className="font-bold text-sm group-hover:text-primary transition-colors">{wf.name}</span>
+                    <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-500 border-none text-[10px] h-4">Active</Badge>
+                  </div>
+                  {wf.description && (
+                    <p className="text-[11px] text-muted-foreground mt-1 line-clamp-1">{wf.description}</p>
+                  )}
+                </button>
+              ))
+            )}
+            
+            <button
+                onClick={() => startAnalysis(null)}
+                className="w-full flex items-center justify-between p-3 rounded-lg border border-dashed border-border/60 hover:bg-muted/30 transition-all text-left mt-2"
+            >
+                <span className="text-xs font-medium text-muted-foreground italic">Skip workflow (Use default analysis)</span>
+            </button>
+          </div>
+          
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setDocToAnalyze(null); setShowWorkflowModal(false); }}>Cancel</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+ 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!docToDelete} onOpenChange={(open) => !open && setDocToDelete(null)}>
         <AlertDialogContent>

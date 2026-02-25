@@ -25,4 +25,9 @@ export const usersService = {
     const response = await api.patch(`/users/${userId}/activate`);
     return response.data;
   },
+  
+  async delete(userId) {
+    const response = await api.delete(`/users/${userId}`);
+    return response.data;
+  },
 };

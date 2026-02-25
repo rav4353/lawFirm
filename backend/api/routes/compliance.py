@@ -27,7 +27,8 @@ router = APIRouter(tags=["Compliance Analysis"])
 @router.post("/analyze-document", response_model=ComplianceAnalysisResponse, status_code=201)
 async def analyze_document(
     document_id: str,
-    current_user: User = Depends(require_permission("documents", "read_own")),
+    workflow_id: str | None = None,
+    current_user: User = Depends(require_permission("documents", "view_own")),
     db: Session = Depends(get_db),
 ):
     """
@@ -42,8 +43,8 @@ async def analyze_document(
     6. Return the compliance report.
     """
     # 1. Verify the user can access this document
-    can_read_any = await opa_service.check_permission(
-        current_user.role, "documents", "read_any"
+    can_view_all = await opa_service.check_permission(
+        current_user.role, "documents", "view_all"
     )
     doc = document_repository.get_document_by_id(db, document_id)
     if not doc:
@@ -51,7 +52,7 @@ async def analyze_document(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found.",
         )
-    if not can_read_any and doc.uploaded_by != current_user.id:
+    if not can_view_all and doc.uploaded_by != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found.",
@@ -77,7 +78,7 @@ async def analyze_document(
         resource="compliance_analysis",
         action="analyze",
         resource_id=doc.id,
-        opa_input={"role": current_user.role, "resource": "documents", "action": "read_own"},
+        opa_input={"role": current_user.role, "resource": "documents", "action": "view_own"},
         opa_decision={"allow": True},
     )
 
@@ -102,12 +103,14 @@ async def analyze_document(
         analyzed_by=current_user.id,
         compliance_data=scored_result,
         latency_seconds=latency,
+        workflow_id=workflow_id,
     )
 
     # 6. Return response
     return ComplianceAnalysisResponse(
         id=result.id,
         document_id=result.document_id,
+        workflow_id=result.workflow_id,
         document_name=doc.filename,
         gdpr_status=result.gdpr_status,
         ccpa_status=result.ccpa_status,
@@ -128,8 +131,8 @@ async def get_analysis(
 ):
     """Fetch the latest compliance analysis result for a document."""
     # Verify access
-    can_read_any = await opa_service.check_permission(
-        current_user.role, "documents", "read_any"
+    can_view_all = await opa_service.check_permission(
+        current_user.role, "documents", "view_all"
     )
     doc = document_repository.get_document_by_id(db, document_id)
     if not doc:
@@ -137,7 +140,7 @@ async def get_analysis(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found.",
         )
-    if not can_read_any and doc.uploaded_by != current_user.id:
+    if not can_view_all and doc.uploaded_by != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found.",
@@ -154,6 +157,7 @@ async def get_analysis(
     return ComplianceAnalysisResponse(
         id=result.id,
         document_id=result.document_id,
+        workflow_id=result.workflow_id,
         document_name=doc.filename,
         gdpr_status=result.gdpr_status or "FAIL",
         ccpa_status=result.ccpa_status or "FAIL",

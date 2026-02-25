@@ -66,7 +66,7 @@ const roleConfig = {
     quickActions: [
       { icon: Workflow, label: "Workflow Builder", desc: "Design compliance logic", link: "/workflows" },
       { icon: FileText, label: "Case Management", desc: "Review active filings", link: "/documents" },
-      { icon: BarChart3, label: "Analytics", desc: "Monitor case performance" },
+      { icon: BarChart3, label: "Analytics", desc: "Monitor case performance", link: "/analytics/case-performance" },
     ],
   },
   partner: {
@@ -76,9 +76,9 @@ const roleConfig = {
     bg: "bg-amber-500/10",
     border: "border-amber-500/20",
     quickActions: [
-      { icon: BarChart3, label: "Firm Analytics", desc: "Revenue & KPI review" },
+      { icon: BarChart3, label: "Firm Analytics", desc: "Revenue & KPI review", link: "/firm-analytics" },
       { icon: Workflow, label: "All Workflows", desc: "Audit active workflows", link: "/workflows" },
-      { icon: Users, label: "Team Overview", desc: "Manage associate loads" },
+      { icon: Users, label: "Team Overview", desc: "Manage associate loads", link: "/team-overview" },
     ],
   },
   it_admin: {

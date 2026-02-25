@@ -49,10 +49,12 @@ def create_compliance_result(
     analyzed_by: str,
     compliance_data: dict[str, Any],
     latency_seconds: float,
+    workflow_id: str | None = None,
 ) -> AnalysisResult:
     """Persist a new compliance analysis result."""
     result = AnalysisResult(
         document_id=document_id,
+        workflow_id=workflow_id,
         analysis_type="compliance",
         # Legacy required fields (NOT NULL in old schema)
         rules_triggered="See compliance report",

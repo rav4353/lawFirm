@@ -12,6 +12,13 @@ class EmailService:
         self.from_name = settings.SENDGRID_FROM_NAME
 
     def send_otp_email(self, to_email: str, otp_code: str, purpose: str):
+        # Development Fallback: Log the OTP so it can be retrieved from logs if email fails or in dev
+        logger.warning(f"--- OTP DEBUG LOG ---")
+        logger.warning(f"Recipient: {to_email}")
+        logger.warning(f"Purpose: {purpose}")
+        logger.warning(f"OTP Code: {otp_code}")
+        logger.warning(f"---------------------")
+
         subject = "Your Veritas AI Verification Code"
         if purpose == "password_reset":
             subject = "Veritas AI - Password Reset Request"
@@ -39,9 +46,28 @@ class EmailService:
         
         try:
             response = self.sg.send(message)
-            return response.status_code == 202
+            if response.status_code == 202:
+                logger.warning(f"Email sent successfully to {to_email}")
+                return True
+            else:
+                logger.warning(f"SendGrid error status: {response.status_code}")
+                logger.warning(f"SendGrid error body: {response.body}")
+                logger.warning(f"SendGrid error headers: {response.headers}")
+                return False
         except Exception as e:
-            logger.error(f"Failed to send email: {e}")
+            logger.warning(f"Detailed SendGrid Exception: {type(e).__name__}: {str(e)}")
+            # For SendGrid exceptions, they often have an 'err' or '.body' attribute
+            if hasattr(e, 'body'):
+                logger.warning(f"SendGrid Response Body: {e.body}")
+            
+            # If it's an HTTPError from urllib, try to read the response
+            try:
+                import urllib.error
+                if isinstance(e, urllib.error.HTTPError):
+                    logger.error(f"HTTPError content: {e.read().decode()}")
+            except:
+                pass
+
             return False
 
 email_service = EmailService()

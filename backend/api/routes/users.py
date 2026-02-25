@@ -133,3 +133,14 @@ async def activate_user(
         metadata={"action": "activated_user"},
     )
     return user
+
+
+@router.delete("/{user_id}", status_code=204)
+async def delete_user(
+    user_id: str,
+    current_user: User = Depends(require_permission("users", "delete")),
+    db: Session = Depends(get_db),
+):
+    """Permanently delete a user account. IT Admin only."""
+    user_management_service.admin_delete_user(db, user_id, current_user.id)
+    return None
