@@ -1,0 +1,86 @@
+name: Deploy — Build & Push Images
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE: ghcr.io/${{ github.repository }}/backend
+  FRONTEND_IMAGE: ghcr.io/${{ github.repository }}/frontend
+
+jobs:
+  # ─── Build & Push to GHCR ──────────────
+  build-and-push:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set image tag
+        id: tag
+        run: echo "tag=$(echo ${{ github.sha }} | head -c 7)" >> $GITHUB_OUTPUT
+
+      - name: Build & push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:${{ steps.tag.outputs.tag }}
+            ${{ env.BACKEND_IMAGE }}:latest
+
+      - name: Build & push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:${{ steps.tag.outputs.tag }}
+            ${{ env.FRONTEND_IMAGE }}:latest
+
+  # ─── Deploy (manual gate) ──────────────
+  deploy:
+    name: Deploy to Cluster
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.event_name == 'workflow_dispatch'
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: tag
+        run: echo "tag=$(echo ${{ github.sha }} | head -c 7)" >> $GITHUB_OUTPUT
+
+      - name: Update K8s manifests with new image tags
+        run: |
+          sed -i "s|veritas-ai-backend:latest|${{ env.BACKEND_IMAGE }}:${{ steps.tag.outputs.tag }}|g" k8s/02-backend.yaml
+          sed -i "s|veritas-ai-frontend:latest|${{ env.FRONTEND_IMAGE }}:${{ steps.tag.outputs.tag }}|g" k8s/03-frontend.yaml
+
+      - name: Apply manifests
+        run: |
+          echo "In a real deployment, configure kubeconfig and apply manifests here."
+          echo "kubectl apply -f k8s/ --recursive"
+          echo "Manifests would use images tagged: ${{ steps.tag.outputs.tag }}"

@@ -6,6 +6,13 @@ metadata:
 data:
   DATABASE_URL: postgresql+psycopg2://veritas:veritas@postgres:5432/veritas
   SECRET_KEY: veritas-dev-secret-key-change-in-production
+  OPA_URL: "http://opa:8181"
+  OLLAMA_URL: "http://ollama:11434"
+  MINIO_ENDPOINT: "minio:9000"
+  MINIO_ACCESS_KEY: "minioadmin"
+  MINIO_SECRET_KEY: "minioadmin"
+  MINIO_SECURE: "false"
+  MINIO_BUCKET: "lawfirm-documents"
 ---
 apiVersion: apps/v1
 kind: Deployment
