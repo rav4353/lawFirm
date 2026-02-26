@@ -36,6 +36,11 @@ def setup_db():
 
 # Mock OPA to always allow (matches pre-OPA behaviour)
 @pytest.fixture(autouse=True)
+def mock_s3():
+    with patch("services.document_service.s3_client") as mock_s3_client:
+        yield mock_s3_client
+
+@pytest.fixture(autouse=True)
 def mock_opa():
     with patch(
         "services.opa_service.check_permission",

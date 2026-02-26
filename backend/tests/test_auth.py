@@ -1,9 +1,12 @@
+import os
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
 from datetime import datetime, timedelta, timezone
+
+os.environ["TESTING"] = "true"
+
 from api.main import app
 from models.database import Base, get_db
 from models.otp import OTP
@@ -53,9 +56,13 @@ def _register_and_login():
     db.add(OTP(email=TEST_USER["email"], otp_code="123456", purpose="account_verification", expires_at=expires_at))
     db.commit()
     db.close()
-    client.post(REGISTER_URL, json=TEST_USER, params={"otp_code": "123456"})
+    resp = client.post(REGISTER_URL, json=TEST_USER, params={"otp_code": "123456"})
+    assert resp.status_code == 201, f"Registration failed ({resp.status_code}): {resp.text}"
     resp = client.post(LOGIN_URL, data={"username": TEST_USER["email"], "password": TEST_USER["password"]})
-    return resp.json()["access_token"]
+    assert resp.status_code == 200, f"Login failed ({resp.status_code}): {resp.text}"
+    data = resp.json()
+    assert "access_token" in data, f"Missing access_token in response: {data}"
+    return data["access_token"]
 
 
 # ---------- Registration Tests ----------

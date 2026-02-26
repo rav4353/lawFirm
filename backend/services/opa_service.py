@@ -110,6 +110,11 @@ def _get_db_allowed_actions(role_name: str) -> list[dict[str, str]] | None:
     finally:
         db.close()
 
+
+def _get_client() -> httpx.AsyncClient:
+    """Return an async httpx client."""
+    return httpx.AsyncClient(timeout=2.0)
+
 async def check_permission(role: str, resource: str, action: str) -> bool:
     """Query OPA, then DB, then fallback matrix."""
     from services.metrics_service import OPA_DECISION_LATENCY
@@ -119,7 +124,7 @@ async def check_permission(role: str, resource: str, action: str) -> bool:
     try:
         # 1. Try OPA (Production approach)
         try:
-            async with httpx.AsyncClient(timeout=2.0) as client:
+            async with _get_client() as client:
                 resp = await client.post(
                     f"{OPA_URL}{_POLICY_PATH}/allow",
                     json={"input": {"role": role, "resource": resource, "action": action}},
@@ -148,7 +153,7 @@ async def check_permission(role: str, resource: str, action: str) -> bool:
 async def get_allowed_actions(role: str) -> list[dict[str, str]]:
     """Return all allowed actions from OPA or DB."""
     try:
-        async with httpx.AsyncClient(timeout=2.0) as client:
+        async with _get_client() as client:
             resp = await client.post(
                 f"{OPA_URL}{_POLICY_PATH}/allowed_actions",
                 json={"input": {"role": role}},

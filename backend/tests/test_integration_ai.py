@@ -29,6 +29,12 @@ app.dependency_overrides[get_db] = override_get_db
 
 
 @pytest.fixture(autouse=True)
+def mock_s3():
+    with patch("services.document_service.s3_client") as mock_s3_client:
+        yield mock_s3_client
+
+
+@pytest.fixture(autouse=True)
 def mock_opa():
     with patch("services.opa_service.check_permission", new_callable=AsyncMock, return_value=True):
         yield

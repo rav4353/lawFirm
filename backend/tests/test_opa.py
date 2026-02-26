@@ -10,6 +10,8 @@ instance. They verify:
 """
 
 import io
+import uuid
+import os
 from unittest.mock import AsyncMock, patch, MagicMock
 
 import pytest
@@ -17,6 +19,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+os.environ["TESTING"] = "true"
+
+import services.opa_service # Ensure it is imported before patching
 from api.main import app
 from models.database import Base, get_db
 
@@ -53,17 +58,40 @@ LOGIN_URL = "/auth/login"
 
 def _register_and_login(role: str = "associate") -> str:
     """Create a user and return an access token."""
+    from models.otp import OTP
+    from datetime import datetime, timedelta, timezone
+    user_email = f"{role}_{uuid.uuid4().hex[:8]}@veritas.ai"
     user_data = {
-        "email": f"{role}@veritas.ai",
+        "name": f"{role.capitalize()} User",
+        "email": user_email,
         "password": "securepassword123",
         "role": role,
     }
-    client.post(REGISTER_URL, json=user_data)
+    db = TestingSessionLocal()
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+    db.add(OTP(email=user_data["email"], otp_code="123456", purpose="account_verification", expires_at=expires_at))
+    db.commit()
+    db.close()
+    
+    resp = client.post(REGISTER_URL, json=user_data, params={"otp_code": "123456"})
+    assert resp.status_code == 201, f"Registration failed ({resp.status_code}): {resp.text}"
+    
+    # Force the role in the DB because create_user might override it
+    db = TestingSessionLocal()
+    from models.user import User
+    user = db.query(User).filter(User.email == user_data["email"]).first()
+    user.role = role
+    db.commit()
+    db.close()
+
     resp = client.post(
         LOGIN_URL,
         data={"username": user_data["email"], "password": user_data["password"]},
     )
-    return resp.json()["access_token"]
+    assert resp.status_code == 200, f"Login failed ({resp.status_code}): {resp.text}"
+    data = resp.json()
+    assert "access_token" in data, f"Missing access_token in response: {data}"
+    return data["access_token"]
 
 
 # ═══════════════════════════════════════
@@ -75,10 +103,11 @@ def _register_and_login(role: str = "associate") -> str:
 async def test_check_permission_allowed():
     mock_resp = MagicMock()
     mock_resp.json.return_value = {"result": True}
+    mock_resp.status_code = 200
     mock_resp.raise_for_status = MagicMock()
 
     with patch("services.opa_service._get_client") as mock_client:
-        mock_client.return_value.post = AsyncMock(return_value=mock_resp)
+        mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_resp)
         from services.opa_service import check_permission
 
         assert await check_permission("partner", "documents", "delete_any") is True
@@ -88,10 +117,11 @@ async def test_check_permission_allowed():
 async def test_check_permission_denied():
     mock_resp = MagicMock()
     mock_resp.json.return_value = {"result": False}
+    mock_resp.status_code = 200
     mock_resp.raise_for_status = MagicMock()
 
     with patch("services.opa_service._get_client") as mock_client:
-        mock_client.return_value.post = AsyncMock(return_value=mock_resp)
+        mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_resp)
         from services.opa_service import check_permission
 
         assert await check_permission("paralegal", "documents", "delete_any") is False
@@ -101,8 +131,9 @@ async def test_check_permission_denied():
 async def test_check_permission_fail_closed():
     """When OPA is unreachable and we are NOT in dev mode, the result should be deny."""
     with patch("services.opa_service._get_client") as mock_client, \
-         patch("services.opa_service._is_dev_mode", return_value=False):
-        mock_client.return_value.post = AsyncMock(
+         patch("services.opa_service._is_dev_mode", return_value=False), \
+         patch("services.opa_service._check_db_permission", return_value=None):
+        mock_client.return_value.__aenter__.return_value.post = AsyncMock(
             side_effect=Exception("connection refused")
         )
         from services.opa_service import check_permission
@@ -118,11 +149,13 @@ async def test_get_allowed_actions():
     ]
     mock_resp = MagicMock()
     mock_resp.json.return_value = {"result": fake_actions}
+    mock_resp.status_code = 200
     mock_resp.raise_for_status = MagicMock()
 
     with patch("services.opa_service._get_client") as mock_client, \
-         patch("services.opa_service._is_dev_mode", return_value=False):
-        mock_client.return_value.post = AsyncMock(return_value=mock_resp)
+         patch("services.opa_service._is_dev_mode", return_value=False), \
+         patch("services.opa_service._get_db_allowed_actions", return_value=None):
+        mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_resp)
         from services.opa_service import get_allowed_actions
 
         result = await get_allowed_actions("paralegal")
